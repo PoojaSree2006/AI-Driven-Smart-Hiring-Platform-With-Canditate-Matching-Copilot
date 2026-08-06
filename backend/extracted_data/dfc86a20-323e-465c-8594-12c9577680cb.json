@@ -1,0 +1,128 @@
+{
+  "name": "THUKKANI POOJASREE",
+  "email": "poojasreereddy2006@gmail.com",
+  "phone": "+91-9491531581",
+  "location": "Data Analytics, Machine Learning",
+  "linkedin": null,
+  "github": null,
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "Machine Learning",
+    "Data Analysis",
+    "Pandas",
+    "NumPy",
+    "Data Visualization",
+    "SQL",
+    "MySQL",
+    "Leadership",
+    "Communication",
+    "Excel",
+    "Tableau"
+  ],
+  "education": [
+    {
+      "degree": "B.Tech \u2013 Computer Science and Engineering",
+      "institution": null,
+      "year": null
+    }
+  ],
+  "experience": [
+    {
+      "title": null,
+      "company": null,
+      "duration": "Dec 2025 \u2013 Mar 2026",
+      "description": "Cleaned, pre-processed, and analyzed real-world datasets using Python and Excel to extract meaningful insights. Designed interactive Tableau dashboards to visualize key business metrics and support data-driven decision-making. Performed exploratory data analysis (EDA) to identify trends, patterns, and business opportunities. Developed analytical reports and dashboards to communicate insights effectively to stakeholders."
+    }
+  ],
+  "projects": [
+    {
+      "name": "Flight Delay Prediction System",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Python | Flask | Scikit-learn | Random Forest",
+      "description": "Developed a machine learning model and Flask application to predict flight delays using historical aviation data.",
+      "technologies": [
+        "Python",
+        "Flask",
+        "Machine Learning",
+        "scikit-learn"
+      ]
+    },
+    {
+      "name": "Pizza Sales Dashboard",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Tableau",
+      "description": "Designed an interactive dashboard to analyze sales performance, revenue trends, and key business KPIs.",
+      "technologies": [
+        "Tableau"
+      ]
+    },
+    {
+      "name": "Supply Chain Management Dashboard",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Tableau",
+      "description": "Built a dashboard to visualize supply chain performance, inventory metrics, and operational insights.",
+      "technologies": [
+        "Tableau"
+      ]
+    },
+    {
+      "name": "TCS Stock Data Analysis",
+      "description": "",
+      "technologies": [
+        "Data Analysis"
+      ]
+    },
+    {
+      "name": "Python | Pandas",
+      "description": "Analyzed historical stock data to identify market trends using exploratory data analysis and visualization.",
+      "technologies": [
+        "Python",
+        "Data Analysis",
+        "Pandas"
+      ]
+    },
+    {
+      "name": "Uber Trip Analysis",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Python | Pandas",
+      "description": "Performed exploratory data analysis on Uber trip data to identify travel patterns and peak demand.",
+      "technologies": [
+        "Python",
+        "Data Analysis",
+        "Pandas"
+      ]
+    }
+  ],
+  "certifications": [
+    "Google Data Analytics Professional Certificate \u2013 Coursera",
+    "NPTEL Database Management System (Elite) \u2013 IIT Kharagpur",
+    "NPTEL Programming, Data Structures and Algorithms using Python \u2013 IIT Madras",
+    "One Million Prompters \u2013 Prompt Engineering for AI",
+    "Training",
+    "Infosys Virtual Internship 7.0 \u2013 Artificial Intelligence (Ongoing) | Jul 2026 \u2013 Sep 2026",
+    "Developing practical skills in Artificial Intelligence, Machine Learning, and AI-driven problem solving through an 8-week virtual internship.",
+    "Achievements",
+    "Awarded 1st Topper Certificate by the CSE Department (2025).",
+    "Presented a Security and Surveillance project at the IEEE Hack-Arena National Level Hackathon.",
+    "Participated in the Inspire India Defence & Space Convention featuring experts from ISRO, DRDO, NRSC, Skyroot, and IIT Hyderabad.",
+    "Leadership",
+    "IEEE Student Branch Member | Guru Nanak Institutions Technical Campus",
+    "Assisted in organizing technical events and student engagement activities."
+  ]
+}

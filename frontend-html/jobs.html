@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Postings — Recruitment Copilot</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar"></div>
+
+    <main class="main-content">
+      <h1 class="page-title">Job Postings</h1>
+      <p class="page-subtitle">Define roles and required skills used for Candidate Matching</p>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h2 class="card-title">Create Job Posting</h2>
+
+        <form id="job-form">
+          <div class="grid grid-2" style="margin-bottom:12px;">
+            <div>
+              <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Job Title</label>
+              <input id="job-title-input" class="search-input" style="padding-left:12px;" type="text" placeholder="e.g. Senior Machine Learning Engineer" required />
+            </div>
+            <div>
+              <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Location</label>
+              <input id="job-location-input" class="search-input" style="padding-left:12px;" type="text" placeholder="e.g. San Francisco, CA" />
+            </div>
+          </div>
+
+          <div class="grid grid-2" style="margin-bottom:12px;">
+            <div>
+              <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Minimum Experience (years)</label>
+              <input id="job-experience-input" class="search-input" style="padding-left:12px;" type="text" placeholder="e.g. 3" />
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Description</label>
+            <textarea id="job-description-input" class="search-input" style="padding-left:12px; height:70px;"></textarea>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Required Skills</label>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <input id="skill-name-input" class="search-input" style="padding-left:12px; max-width:220px;" type="text" placeholder="Skill name (e.g. TensorFlow)" />
+              <select id="skill-level-select" class="search-input" style="padding-left:12px; max-width:160px;">
+                <option value="Required">Required</option>
+                <option value="Advanced">Advanced</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Preferred">Preferred</option>
+                <option value="Basic">Basic</option>
+              </select>
+              <button id="add-skill-btn" type="button" class="btn-primary">Add</button>
+            </div>
+            <div id="skills-draft-list"><span class="loading-text">No skills added yet.</span></div>
+          </div>
+
+          <p id="job-form-error" class="error-text" style="display:none;"></p>
+
+          <button type="submit" class="btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Job Posting
+          </button>
+        </form>
+      </div>
+
+      <div class="card table-card">
+        <div style="padding:20px 20px 0 20px;">
+          <h2 class="card-title">All Job Postings</h2>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Location</th>
+              <th>Required Skills</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody">
+            <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <script src="js/sidebar.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/jobs.js"></script>
+</body>
+</html>

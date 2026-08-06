@@ -1,0 +1,108 @@
+{
+  "name": "VANKUDOTH JANYASRI",
+  "email": "janyasri2005@gmail.com",
+  "phone": "+91 9949554637",
+  "location": "Hyderabad, Telangana",
+  "linkedin": "https://www.linkedin.com/in/janya-sri-vankudoth-1877252b3",
+  "github": "https://github.com/janyasri",
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "Java",
+    "React",
+    "HTML",
+    "CSS",
+    "Node.js",
+    "Express",
+    "Data Analysis",
+    "Pandas",
+    "NumPy",
+    "SQL",
+    "MySQL",
+    "MongoDB",
+    "Docker",
+    "Git",
+    "Excel",
+    "Power BI"
+  ],
+  "education": [
+    {
+      "degree": "B.Tech in Computer Science Engineering",
+      "institution": null,
+      "year": null
+    }
+  ],
+  "experience": [
+    {
+      "title": null,
+      "company": null,
+      "duration": "Apr 2025 \u2013 Jul 2025",
+      "description": "Cleaned and analyzed large datasets using Excel, Python (Pandas, NumPy), and SQL to extract actionable business insights for stakeholder reporting. Built interactive Power BI dashboards to visualize key metrics, enabling faster, data-driven decision-making for the team. Identified data quality issues and anomalies during preprocessing, improving reliability of downstream analysis. AI Generalist & Automation Intern \u2014 Ralla Water Purifiers"
+    },
+    {
+      "title": null,
+      "company": null,
+      "duration": "May 2026 \u2013 Present",
+      "description": "Design and deploy AI-powered automation workflows using Python and LLM-based pipelines to streamline business reporting processes. Build predictive analytics models and automate data pipelines, reducing manual reporting overhead for the operations team. Apply NLP and generative AI techniques to translate raw operational data into practical, actionable insights for startup-scale decision-making."
+    }
+  ],
+  "projects": [
+    {
+      "name": "Project Management Utility",
+      "description": "",
+      "technologies": [
+        "Project Management"
+      ]
+    },
+    {
+      "name": "MongoDB \u00b7 Express.js \u00b7 React.js \u00b7 Node.js \u00b7 REST APIs",
+      "description": "Developed a full-stack task management application with CRUD operations for users and tasks, backed by a MongoDB Atlas database storing 50+ live records. Built a secure MVC backend with Node.js & Express.js; integrated Axios for real-time frontend-backend data communication. Deployed frontend on Vercel and backend on Render, maintaining 90% uptime in production.",
+      "technologies": [
+        "React",
+        "Node.js",
+        "Express",
+        "MongoDB",
+        "Communication"
+      ]
+    },
+    {
+      "name": "CERTIFICATIONS & ACHIEVEMENTS",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Data Analyst Internship Certificate \u2014 Unified Mentor",
+      "description": "Certificate of Excellence, Best Student \u2014 Cyber Security Workshop (Supraja Technologies / MSME, Govt. of India)",
+      "technologies": []
+    },
+    {
+      "name": "Data Analytics Mastery with Excel & Power BI \u2014 BITS Pilani Hyderabad",
+      "description": "",
+      "technologies": [
+        "Excel",
+        "Power BI"
+      ]
+    },
+    {
+      "name": "Getting Started with Fabric Data Agents Workshop \u2014 Microsoft Office Hyderabad",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Hack With Hyderabad Hackathon \u2014 Microsoft Office Hyderabad",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "INTERESTS",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Sports  \u2022  Dance  \u2022  Active participation in technical events",
+      "description": "",
+      "technologies": []
+    }
+  ],
+  "certifications": []
+}

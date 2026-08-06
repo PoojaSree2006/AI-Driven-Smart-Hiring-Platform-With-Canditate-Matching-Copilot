@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Recruitment Copilot</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar"></div>
+
+    <main class="main-content">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle">Overview of your recruitment pipeline</p>
+
+      <p id="dashboard-error" class="error-text" style="display:none;"></p>
+
+      <div id="stats-grid" class="grid grid-4">
+        <div class="card"><span class="loading-text">Loading…</span></div>
+        <div class="card"><span class="loading-text">Loading…</span></div>
+        <div class="card"><span class="loading-text">Loading…</span></div>
+        <div class="card"><span class="loading-text">Loading…</span></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

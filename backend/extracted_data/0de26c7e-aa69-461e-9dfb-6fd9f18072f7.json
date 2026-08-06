@@ -1,0 +1,85 @@
+{
+  "name": "Thukkani Poojasree",
+  "email": "poojasreereddy2006@gmail.com",
+  "phone": "+91-9491531581",
+  "location": null,
+  "linkedin": null,
+  "github": null,
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "Machine Learning",
+    "Pandas",
+    "NumPy",
+    "Data Visualization",
+    "SQL",
+    "MySQL",
+    "Leadership",
+    "Communication",
+    "Excel",
+    "Tableau"
+  ],
+  "education": [
+    {
+      "degree": "B.Tech \u2013 Computer Science and Engineering; CGPA: 9.26/10",
+      "institution": null,
+      "year": null
+    }
+  ],
+  "experience": [
+    {
+      "title": null,
+      "company": null,
+      "duration": "Dec 2025 \u2013 Mar 2026",
+      "description": "Unified Mentor Pvt. Ltd. Cleaned, pre-processed, and analyzed real-world datasets using Python and Excel to extract meaningful insights. Designed interactive Tableau dashboards to visualize key business metrics and inform stakeholder decisions. Performed exploratory data analysis (EDA) to identify trends, patterns, and business opportunities, and developed reports to communicate insights to stakeholders. Artificial Intelligence Virtual Intern \u2013 Infosys Springboard 7.0"
+    },
+    {
+      "title": null,
+      "company": null,
+      "duration": "Jul 2026 \u2013 Present",
+      "description": "Infosys Building practical skills in Artificial Intelligence and Machine Learning through an 8-week virtual internship, applying AI-driven problem-solving to real-world use cases."
+    }
+  ],
+  "projects": [
+    {
+      "name": "Flight Delay Prediction System | Python, Flask, Scikit-learn, Random Forest",
+      "description": "Built a Random Forest machine learning model on historical aviation data to predict flight delays. Deployed the model through a Flask web application for real-time delay prediction.",
+      "technologies": [
+        "Python",
+        "Flask",
+        "Machine Learning",
+        "scikit-learn"
+      ]
+    },
+    {
+      "name": "TCS Stock Data Analysis & Uber Trip Analysis | Python, Pandas",
+      "description": "Analyzed historical TCS stock data using Pandas, applying exploratory data analysis and visualization to uncover market trends and patterns. Performed exploratory data analysis on Uber trip data to identify travel patterns and peak demand.",
+      "technologies": [
+        "Python",
+        "Data Analysis",
+        "Pandas"
+      ]
+    },
+    {
+      "name": "Pizza Sales Dashboard & Supply Chain Management Dashboard | Tableau",
+      "description": "Designed an interactive Tableau dashboard to analyze pizza sales performance, revenue trends, and key business KPIs. Built a supply chain dashboard visualizing inventory metrics and operational performance to surface actionable insights.",
+      "technologies": [
+        "Tableau"
+      ]
+    }
+  ],
+  "certifications": [
+    "Google Data Analytics Professional Certificate \u2013 Coursera",
+    "NPTEL Database Management System (Elite) \u2013 IIT Kharagpur",
+    "NPTEL Programming, Data Structures and Algorithms using Python \u2013 IIT Madras",
+    "One Million Prompters \u2013 Prompt Engineering for AI",
+    "Achievements",
+    "Awarded 1st Topper Certificate by the CSE Department (2025).",
+    "Presented a Security and Surveillance project at the IEEE Hack-Arena National Level Hackathon.",
+    "Participated in the Inspire India Defence & Space Convention featuring experts from ISRO, DRDO, NRSC, Skyroot, and",
+    "IIT Hyderabad."
+  ]
+}

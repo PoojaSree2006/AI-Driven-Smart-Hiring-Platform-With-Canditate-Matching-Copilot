@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Upload — Recruitment Copilot</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar"></div>
+
+    <main class="main-content">
+      <h1 class="page-title">Resume Parsing &amp; Candidate Profiling</h1>
+      <p class="page-subtitle">Upload and process resumes to create structured candidate profiles</p>
+
+      <div class="grid grid-2">
+        <!-- Upload Card -->
+        <div class="card">
+          <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Upload Resume
+          </h2>
+
+          <div id="dropzone" class="dropzone">
+            <div class="dropzone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <p>Drag and drop one or more resumes or click to browse</p>
+            <button id="browse-btn" class="btn-primary" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload Files
+            </button>
+            <input id="file-input" type="file" accept=".pdf,.docx" multiple hidden />
+            <small>Supported formats: PDF, DOCX . You can upload multiple resumes at once.</small>
+          </div>
+
+          <div id="file-info" class="file-info" style="display:none;"></div>
+          <p id="upload-error" class="error-text" style="display:none;"></p>
+        </div>
+
+        <!-- Parsing Progress Card -->
+        <div class="card">
+          <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Parsing Progress
+          </h2>
+
+          <div class="progress-row">
+            <span>Extraction Progress</span>
+            <span id="progress-pct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+
+          <div id="extracted-info" class="extracted-info" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Recently Processed -->
+      <div class="card table-card" style="margin-top:20px;">
+        <div style="padding:20px 20px 0 20px;">
+          <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Recently Processed Candidates
+          </h2>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Candidate Name</th>
+              <th>Email</th>
+              <th>Experience</th>
+              <th>Key Skills</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-tbody">
+            <tr class="empty-row"><td colspan="5">No candidates processed yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/upload.js"></script>
+</body>
+</html>
