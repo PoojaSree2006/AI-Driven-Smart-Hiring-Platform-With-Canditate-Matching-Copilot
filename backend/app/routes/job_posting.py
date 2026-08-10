@@ -1,18 +1,10 @@
 """
 routes/job_posting.py
 =======================
-NEW FILE — Milestone 2.
-
-CRUD endpoints for job postings, plus the two matching endpoints
-(candidate ranking and skill gap analysis) that depend on a job posting.
-
-Following the existing project convention: routes stay thin and only
-call services (candidate_service.py's pattern), never touch the ORM
-or business logic directly.
+CRUD endpoints for job postings and matching/skill gap analysis.
 """
 
 import uuid
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -71,7 +63,7 @@ def delete_job_posting(job_id: str, db: Session = Depends(get_db)):
 
 @router.get("/candidates/match/{job_id}", response_model=list[CandidateMatchItem])
 def match_candidates_for_job(job_id: str, db: Session = Depends(get_db)):
-    """Returns every candidate ranked by match % against this job posting."""
+    """Returns candidates ranked by match score against job requirements."""
     try:
         results = matching_service.rank_candidates_for_job(db, job_id)
         return [CandidateMatchItem(**r) for r in results]
@@ -81,7 +73,7 @@ def match_candidates_for_job(job_id: str, db: Session = Depends(get_db)):
 
 @router.get("/candidate/{candidate_id}/skill-gap/{job_id}", response_model=SkillGapResponse)
 def candidate_skill_gap(candidate_id: str, job_id: str, db: Session = Depends(get_db)):
-    """Returns per-skill gap breakdown + recommendation for one candidate/job pair."""
+    """Returns skill breakdown and recommendation for a candidate-job pair."""
     try:
         result = matching_service.get_skill_gap(db, candidate_id, job_id)
         return SkillGapResponse(**result)

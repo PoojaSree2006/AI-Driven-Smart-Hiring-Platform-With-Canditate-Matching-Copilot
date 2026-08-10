@@ -1,50 +1,55 @@
-/* ==============================
-   dashboard.js
-   Equivalent to React pages/Dashboard.jsx.
-   Fetches /dashboard/stats and renders the 4 stat cards.
-   ============================== */
+document.addEventListener("DOMContentLoaded", () => {
+  loadStats();
+  loadRecentCandidates();
+});
 
-document.addEventListener("DOMContentLoaded", async () => {
-  renderSidebar("dashboard");
-
-  const grid = document.getElementById("stats-grid");
-  const errorBox = document.getElementById("dashboard-error");
-
+async function loadStats() {
   try {
     const stats = await api.getDashboardStats();
-
-    grid.innerHTML = `
-      <div class="card">
-        <div class="stat-card-header">
-          <span class="stat-label">Total Candidates</span>
-          <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        </div>
-        <div class="stat-value">${stats.total_candidates}</div>
-      </div>
-      <div class="card">
-        <div class="stat-card-header">
-          <span class="stat-label">Total Uploads</span>
-          <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div class="stat-value">${stats.total_uploads}</div>
-      </div>
-      <div class="card">
-        <div class="stat-card-header">
-          <span class="stat-label">Average Experience</span>
-          <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="stat-value">${stats.average_experience} yrs</div>
-      </div>
-      <div class="card">
-        <div class="stat-card-header">
-          <span class="stat-label">Total Skills Extracted</span>
-          <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3L21 9.3l-4.5 4.4L17.8 21 12 17.8 6.2 21l1.3-7.3L3 9.3l6.1-1z"/></svg>
-        </div>
-        <div class="stat-value">${stats.total_skills_extracted}</div>
-      </div>
-    `;
+    document.getElementById("stat-total").textContent = stats.total_candidates || 0;
+    document.getElementById("stat-uploads").textContent = stats.total_uploads || 0;
+    document.getElementById("stat-exp").textContent = (stats.average_experience || 0) + " yrs";
+    document.getElementById("stat-skills").textContent = stats.total_skills_extracted || 0;
   } catch (err) {
-    errorBox.textContent = "Failed to load dashboard stats.";
-    errorBox.style.display = "block";
+    console.error("Dashboard stats error:", err);
   }
-});
+}
+
+async function loadRecentCandidates() {
+  try {
+    const candidates = await api.getCandidates();
+    const tbody = document.getElementById("recent-tbody");
+    tbody.innerHTML = "";
+
+    if (!candidates || candidates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No candidates found.</td></tr>`;
+      return;
+    }
+
+    candidates.slice(0, 5).forEach((c) => {
+      const skillsHtml = (c.skills || []).map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>
+          <strong>${escapeHtml(c.name || 'Unnamed')}</strong><br>
+          <span style="font-size:11px; color:#94a3b8;">${escapeHtml(c.email || '')}</span>
+        </td>
+        <td>${c.experience_years ? escapeHtml(c.experience_years) + ' yrs' : 'N/A'}</td>
+        <td>${skillsHtml}</td>
+        <td><span class="status-pill"><span class="status-dot"></span>Processed</span></td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    console.error("Dashboard table error:", err);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

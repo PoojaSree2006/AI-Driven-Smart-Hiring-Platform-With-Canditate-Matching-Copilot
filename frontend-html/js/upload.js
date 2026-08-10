@@ -1,280 +1,280 @@
-/* ==============================
-   upload.js
-   Supports:
-   - Single Resume Upload
-   - Multiple Resume Upload
-   - Drag & Drop
-   - Progress Bar
-   - Recently Processed Candidates (loaded from backend)
-   ============================== */
-
-let recentCandidates = [];
+/* ============================================================
+   js/upload.js
+   Handles drag & drop resume uploads, triggers live candidate
+   processing, and populates recent candidates with modal viewing.
+   ============================================================ */
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupUploadEvents();
+  loadCandidates();
 
-  renderSidebar("upload");
+  const exportBtn = document.getElementById("export-csv");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      exportCandidatesCSV();
+    });
+  }
 
-  // Load previously parsed resumes from database
-  loadRecentCandidates();
+  const closeBtn = document.getElementById("modal-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeModal);
+  }
 
-  const dropzone = document.getElementById("dropzone");
-  const fileInput = document.getElementById("file-input");
-  const browseBtn = document.getElementById("browse-btn");
-
-  browseBtn.addEventListener("click", () => fileInput.click());
-
-  fileInput.addEventListener("change", (e) => {
-    if (e.target.files.length > 0) {
-      handleFiles(e.target.files);
-    }
-  });
-
-  dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("drag-active");
-  });
-
-  dropzone.addEventListener("dragleave", () => {
-    dropzone.classList.remove("drag-active");
-  });
-
-  dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("drag-active");
-
-    if (e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
-    }
-  });
-
+  const overlay = document.getElementById("modal-overlay");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target.id === "modal-overlay") closeModal();
+    });
+  }
 });
 
-async function handleFiles(files) {
+function setupUploadEvents() {
+  const browseBtn = document.getElementById("browse-btn");
+  const fileInput = document.getElementById("file-input");
+  const dropzone = document.getElementById("dropzone");
 
-  document.getElementById("upload-error").style.display = "none";
-
-  setProgress(5);
-
-  const progressInterval = setInterval(() => {
-
-    let current = parseInt(document.getElementById("progress-pct").textContent) || 0;
-
-    if (current < 90) {
-      current += 5;
-      setProgress(current);
-    }
-
-  }, 200);
-
-  try {
-
-    let response;
-
-    if (files.length === 1) {
-
-      response = await api.uploadResume(files[0]);
-
-      showFileInfo(files[0], "Processed");
-
-      renderExtractedInfo(response.candidate);
-
-    } else {
-
-      response = await api.uploadMultipleResumes(files);
-
-      document.getElementById("file-info").style.display = "flex";
-
-      document.getElementById("file-info").innerHTML = `
-        <div>
-          <p class="file-info-name">
-            ${response.total_uploaded} Resume(s) Uploaded
-          </p>
-
-          <p class="file-info-meta">
-            ${response.total_failed} Failed
-          </p>
-        </div>
-      `;
-
-      document.getElementById("extracted-info").style.display = "none";
-
-      alert(`${response.total_uploaded} resumes uploaded successfully.`);
-    }
-
-    clearInterval(progressInterval);
-
-    setProgress(100);
-
-    // Reload recent candidates from database
-    await loadRecentCandidates();
-
-  } catch (err) {
-
-    clearInterval(progressInterval);
-
-    showFileInfo(files[0], "Failed");
-
-    const errorBox = document.getElementById("upload-error");
-
-    errorBox.textContent = err.message || "Upload failed.";
-
-    errorBox.style.display = "block";
-
+  if (browseBtn && fileInput) {
+    browseBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => handleUpload(e.target.files));
   }
 
-}
+  if (dropzone) {
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = "#2563eb";
+    });
 
-function setProgress(percent) {
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.style.borderColor = "#cbd5e1";
+    });
 
-  document.getElementById("progress-fill").style.width = percent + "%";
-
-  document.getElementById("progress-pct").textContent = percent + "%";
-
-}
-
-function showFileInfo(file, status) {
-
-  const box = document.getElementById("file-info");
-
-  box.style.display = "flex";
-
-  box.innerHTML = `
-
-    <svg viewBox="0 0 24 24"
-         fill="none"
-         stroke="currentColor"
-         stroke-width="2">
-
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-
-      <polyline points="14 2 14 8 20 8"/>
-
-    </svg>
-
-    <div>
-
-      <p class="file-info-name">
-        ${escapeHtml(file.name)}
-      </p>
-
-      <p class="file-info-meta">
-        ${status} · ${(file.size / (1024 * 1024)).toFixed(2)} MB
-      </p>
-
-    </div>
-
-  `;
-
-}
-
-function renderExtractedInfo(candidate) {
-
-  const box = document.getElementById("extracted-info");
-
-  box.style.display = "block";
-
-  box.innerHTML = `
-
-    <h3>Extracted Information</h3>
-
-    <dl class="info-grid">
-
-      <dt>Name:</dt>
-      <dd>${escapeHtml(candidate.name) || "—"}</dd>
-
-      <dt>Email:</dt>
-      <dd>${escapeHtml(candidate.email) || "—"}</dd>
-
-      <dt>Phone:</dt>
-      <dd>${escapeHtml(candidate.phone) || "—"}</dd>
-
-      <dt>Location:</dt>
-      <dd>${escapeHtml(candidate.location) || "—"}</dd>
-
-      <dt>Experience:</dt>
-      <dd>${candidate.experience_years ? escapeHtml(candidate.experience_years) + " years" : "—"}</dd>
-
-    </dl>
-
-    <span class="skills-label">
-      Skills:
-    </span>
-
-    <div>
-      ${skillTagsHTML(candidate.skills)}
-    </div>
-
-  `;
-
-}
-
-// ===============================
-// Loads ALL previously parsed resumes
-// ===============================
-async function loadRecentCandidates() {
-
-  try {
-
-    const candidates = await api.getCandidates();
-
-    // newest first
-    candidates.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    // display latest 10 (change to candidates.length if you want ALL)
-    recentCandidates = candidates.slice(0, 10);
-
-    renderRecentTable();
-
-  } catch (err) {
-
-    console.error(err);
-
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = "#cbd5e1";
+      if (e.dataTransfer.files.length) {
+        handleUpload(e.dataTransfer.files);
+      }
+    });
   }
-
 }
 
-function renderRecentTable() {
+async function handleUpload(files) {
+  if (!files.length) return;
 
-  const tbody = document.getElementById("recent-tbody");
+  const validFiles = Array.from(files).filter(file => {
+    const ext = file.name.split(".").pop().toLowerCase();
+    return ext === "pdf" || ext === "docx";
+  });
 
-  if (!recentCandidates || recentCandidates.length === 0) {
-
-    tbody.innerHTML = `
-      <tr class="empty-row">
-        <td colspan="5">No candidates processed yet.</td>
-      </tr>
-    `;
-
+  if (!validFiles.length) {
+    alert("Please upload PDF or DOCX files.");
     return;
-
   }
 
-  tbody.innerHTML = recentCandidates.map(c => `
+  try {
+    let result;
+    if (validFiles.length === 1) {
+      result = await api.uploadResume(validFiles[0]);
+    } else {
+      result = await api.uploadMultipleResumes(validFiles);
+    }
 
-    <tr>
+    const candidate = result.candidate || (result.uploaded && result.uploaded[0]) || result;
+    if (candidate) {
+      renderRecentExtraction(candidate);
+    }
 
-      <td class="primary">
-        ${escapeHtml(c.name) || "—"}
-      </td>
+    await loadCandidates();
+  } catch (err) {
+    alert("Upload failed: " + (err.message || err));
+  }
+}
 
-      <td>
-        ${escapeHtml(c.email) || "—"}
-      </td>
+function renderRecentExtraction(candidate) {
+  const container = document.getElementById("recent-extraction-container");
+  if (!container || !candidate) return;
 
-      <td>
-        ${c.experience_years ? escapeHtml(c.experience_years) + " years" : "—"}
-      </td>
+  const skillsHtml = (candidate.skills || [])
+    .map(skill => `<span class="skill-tag">${escapeHtml(skill)}</span>`)
+    .join("");
 
-      <td>
-        ${skillTagsHTML(c.skills || [], 3)}
-      </td>
+  let internshipSummary = "";
+  if (candidate.internships && candidate.internships.length > 0) {
+    const firstIntern = candidate.internships[0];
+    internshipSummary = `
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 11px;">
+        <span style="color: #2563eb; font-weight: 600;">Internship Detected:</span>
+        <strong style="color: #0f172a;">${escapeHtml(firstIntern.role || 'Intern')}</strong>
+        ${firstIntern.company ? 'at ' + escapeHtml(firstIntern.company) : ''}
+      </div>
+    `;
+  }
 
-      <td>
-        ${statusBadgeHTML(c.status)}
-      </td>
+  container.innerHTML = `
+    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 12px;">
+      <div>
+        <span style="color: #94a3b8;">Name</span><br>
+        <strong>${escapeHtml(candidate.name || 'Not detected')}</strong><br>
+        <span style="color: #94a3b8; margin-top: 4px; display:inline-block;">Phone</span><br>
+        <span>${escapeHtml(candidate.phone || 'Not detected')}</span>
+      </div>
+      <div>
+        <span style="color: #94a3b8;">Email</span><br>
+        <span>${escapeHtml(candidate.email || 'Not detected')}</span><br>
+        <span style="color: #94a3b8; margin-top: 4px; display:inline-block;">Experience</span><br>
+        <strong>${candidate.experience_years ? escapeHtml(candidate.experience_years) + ' yrs' : 'Not detected'}</strong>
+      </div>
+    </div>
+    <div>
+      ${skillsHtml || '<span style="font-size:11px; color:#94a3b8;">No skills detected</span>'}
+    </div>
+    ${internshipSummary}
+  `;
+}
 
-    </tr>
+async function loadCandidates() {
+  try {
+    const candidates = await api.getCandidates();
+    const tbody = document.getElementById("candidates-tbody");
+    if (!tbody) return;
 
-  `).join("");
+    tbody.innerHTML = "";
 
+    const candidateList = Array.isArray(candidates) ? candidates : [];
+    const count = candidateList.length;
+
+    const processedEl = document.getElementById("stat-processed");
+    const createdEl = document.getElementById("stat-created");
+
+    if (processedEl) processedEl.textContent = count;
+    if (createdEl) createdEl.textContent = count;
+
+    if (count === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No candidates processed yet.</td></tr>`;
+      return;
+    }
+
+    renderRecentExtraction(candidateList[0]);
+
+    candidateList.forEach((c) => {
+      const skillsHtml = (c.skills || []).map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>
+          <strong style="cursor:pointer; color:#2563eb;" onclick="viewCandidate('${c.id}')">${escapeHtml(c.name || 'Unnamed')}</strong><br>
+          <span style="font-size:11px; color:#94a3b8;">${escapeHtml(c.email || '—')}</span>
+        </td>
+        <td>${c.experience_years ? escapeHtml(c.experience_years) + ' yrs' : 'N/A'}</td>
+        <td>${skillsHtml || '—'}</td>
+        <td><span class="status-pill"><span class="status-dot"></span>Processed</span></td>
+        <td>
+          <button onclick="deleteCandidate('${c.id}')" style="border:none; background:none; cursor:pointer; color:#94a3b8;" title="Delete Candidate">
+            🗑
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    console.error("Error loading candidates:", err);
+  }
+}
+
+async function viewCandidate(id) {
+  try {
+    const candidate = await api.getCandidate(id);
+    renderModal(candidate);
+    const overlay = document.getElementById("modal-overlay");
+    if (overlay) overlay.style.display = "flex";
+  } catch (err) {
+    alert("Failed to load candidate details: " + (err.message || err));
+  }
+}
+
+function renderModal(candidate) {
+  const modalTitle = document.getElementById("modal-title");
+  const modalBody = document.getElementById("modal-body");
+
+  if (modalTitle) modalTitle.textContent = candidate.name || "Candidate Profile";
+  if (!modalBody) return;
+
+  let internshipsHtml = "";
+  if (candidate.internships && candidate.internships.length > 0) {
+    internshipsHtml = `
+      <div style="margin-top:16px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+        <strong style="font-size:13px; color:#2563eb;">💼 Internships & Industrial Training</strong>
+        <div style="margin-top:6px;">
+          ${candidate.internships.map(i => `
+            <div style="margin-bottom:8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px;">
+              <p style="margin:0; font-size:13px; font-weight:600; color:#0f172a;">
+                ${escapeHtml(i.role || "Intern")} ${i.company ? "at " + escapeHtml(i.company) : ""}
+              </p>
+              ${i.duration ? `<small style="color:#64748b; display:block;">${escapeHtml(i.duration)}</small>` : ""}
+              ${i.description ? `<p style="margin:4px 0 0 0; font-size:12px; color:#64748b;">${escapeHtml(i.description)}</p>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  modalBody.innerHTML = `
+    <div style="font-size:13px; color:#0f172a; margin-bottom:12px;">
+      <p style="margin:4px 0;"><strong>Email:</strong> ${escapeHtml(candidate.email || '—')}</p>
+      <p style="margin:4px 0;"><strong>Phone:</strong> ${escapeHtml(candidate.phone || '—')}</p>
+      <p style="margin:4px 0;"><strong>Experience:</strong> ${candidate.experience_years ? escapeHtml(candidate.experience_years) + ' yrs' : '—'}</p>
+    </div>
+    <div>
+      <strong style="font-size:13px;">Extracted Skills</strong><br>
+      ${(candidate.skills || []).map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("")}
+    </div>
+    ${internshipsHtml}
+  `;
+}
+
+function closeModal() {
+  const overlay = document.getElementById("modal-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+async function deleteCandidate(id) {
+  if (!confirm("Delete this candidate permanently?")) return;
+  try {
+    await api.deleteCandidate(id);
+    await loadCandidates();
+  } catch (err) {
+    alert("Failed to delete candidate: " + (err.message || err));
+  }
+}
+
+function exportCandidatesCSV() {
+  api.getCandidates().then(candidates => {
+    if (!candidates || !candidates.length) {
+      alert("No candidates to export.");
+      return;
+    }
+
+    let csv = "Name,Email,Phone,Experience,Skills\n";
+    candidates.forEach(c => {
+      const skills = (c.skills || []).join("; ");
+      csv += `"${c.name || ''}","${c.email || ''}","${c.phone || ''}","${c.experience_years || ''}","${skills}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "candidates_export.csv";
+    a.click();
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

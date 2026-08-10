@@ -1,41 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Analytics — Recruitment Copilot</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <title>AI Recruitment Copilot - Analytics</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <div id="sidebar"></div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-badge">AI</div>
+        <div class="brand-name">Recruitment<br>Copilot</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="upload.html" class="nav-link">Resume Upload</a>
+        <a href="jobs.html" class="nav-link">Job Postings</a>
+        <a href="matching.html" class="nav-link">Matching & Skill Analysis</a>
+        <a href="analytics.html" class="nav-link active">Analytics</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span>Light mode</span>
+      </div>
+    </div>
 
+    <!-- Main Content -->
     <main class="main-content">
-      <h1 class="page-title">Analytics</h1>
-      <p class="page-subtitle">Insights across all processed candidates</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Analytics & Insights</h1>
+          <p class="page-subtitle">Aggregate metrics across your processed talent pool</p>
+        </div>
+      </div>
 
-      <p id="analytics-loading" class="loading-text">Loading analytics…</p>
+      <!-- Loading / Error Message -->
+      <div id="analytics-loading" style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        Loading database analytics...
+      </div>
 
-      <div id="analytics-content" class="grid grid-2" style="display:none;">
-        <div class="card chart-card">
-          <h2 class="card-title">Top Skills</h2>
-          <canvas id="top-skills-chart" height="220"></canvas>
+      <!-- Grid Container for Charts -->
+      <div id="analytics-grid" class="grid-2" style="display: none;">
+        <!-- Top Extracted Skills Chart -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 class="card-title" style="margin-bottom: 0;">Top Extracted Skills</h2>
+            <span style="font-size: 11px; color: var(--text-muted);">Frequency Count</span>
+          </div>
+          <div style="height: 240px; position: relative;">
+            <canvas id="skills-chart"></canvas>
+          </div>
         </div>
 
-        <div class="card chart-card">
-          <h2 class="card-title">Education Distribution</h2>
-          <canvas id="education-chart" height="220"></canvas>
+        <!-- Education Distribution Chart -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 class="card-title" style="margin-bottom: 0;">Education Breakdown</h2>
+            <span style="font-size: 11px; color: var(--text-muted);">Degree Level</span>
+          </div>
+          <div style="height: 240px; position: relative; display: flex; justify-content: center;">
+            <canvas id="edu-chart"></canvas>
+          </div>
         </div>
 
-        <div class="card chart-card span-2">
-          <h2 class="card-title">Experience Distribution</h2>
-          <canvas id="experience-chart" height="180"></canvas>
+        <!-- Experience Distribution Chart (Spans full width) -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 class="card-title" style="margin-bottom: 0;">Experience Distribution</h2>
+            <span style="font-size: 11px; color: var(--text-muted);">Candidate Experience Buckets</span>
+          </div>
+          <div style="height: 220px; position: relative;">
+            <canvas id="exp-chart"></canvas>
+          </div>
         </div>
       </div>
     </main>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="js/sidebar.js"></script>
+
   <script src="js/api.js"></script>
   <script src="js/analytics.js"></script>
 </body>

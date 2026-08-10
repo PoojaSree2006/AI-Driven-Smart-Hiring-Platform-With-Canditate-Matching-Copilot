@@ -1,8 +1,5 @@
 """
-routes/candidate.py
-=====================
-GET /candidates, GET /candidate/{id}, DELETE /candidate/{id},
-plus /dashboard/stats and /analytics used by the Dashboard/Analytics pages.
+backend/app/routes/candidate.py
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,10 +12,12 @@ from app.schemas.candidate import (
 )
 from app.utils.exceptions import CandidateNotFoundError
 
+# Do NOT add prefix="/candidates" here if your path decorator below already uses "/candidates"
 router = APIRouter(tags=["Candidates"])
 
 
 @router.get("/candidates", response_model=list[CandidateListItem])
+@router.get("/candidates/", response_model=list[CandidateListItem])
 def list_candidates(search: str | None = Query(default=None), db: Session = Depends(get_db)):
     candidates = candidate_service.search_candidates(db, search) if search else candidate_service.get_all_candidates(db)
     return [CandidateListItem.model_validate(c) for c in candidates]

@@ -1,126 +1,98 @@
-/* ==============================
-   jobs.js
-   NEW FILE — Milestone 2.
-   Replaces the Milestone 1 placeholder. Handles creating job postings
-   (with required skills + proficiency levels) and listing/deleting them.
-   ============================== */
-
-let requiredSkillsDraft = {}; // { skillName: level } built up as the user adds rows
+let skillsDraft = {};
 
 document.addEventListener("DOMContentLoaded", () => {
-  renderSidebar("jobs");
   loadJobs();
 
-  document.getElementById("add-skill-btn").addEventListener("click", addSkillRow);
-  document.getElementById("job-form").addEventListener("submit", handleCreateJob);
+  document.getElementById("add-skill-btn").addEventListener("click", () => {
+    const nameInput = document.getElementById("skill-input");
+    const levelSelect = document.getElementById("level-select");
+    const skill = nameInput.value.trim().toLowerCase();
+
+    if (skill) {
+      skillsDraft[skill] = levelSelect.value;
+      nameInput.value = "";
+      renderSkillsDraft();
+    }
+  });
+
+  document.getElementById("job-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = document.getElementById("title-input").value.trim();
+    const location = document.getElementById("location-input").value.trim();
+
+    if (!title) return;
+
+    try {
+      await api.createJob({
+        title: title,
+        location: location || null,
+        required_skills: skillsDraft
+      });
+
+      document.getElementById("job-form").reset();
+      skillsDraft = {};
+      renderSkillsDraft();
+      loadJobs();
+    } catch (err) {
+      alert("Failed to create job: " + (err.message || err));
+    }
+  });
 });
 
-function addSkillRow() {
-  const nameInput = document.getElementById("skill-name-input");
-  const levelSelect = document.getElementById("skill-level-select");
-  const name = nameInput.value.trim();
-  if (!name) return;
-
-  requiredSkillsDraft[name] = levelSelect.value;
-  nameInput.value = "";
-  renderSkillsDraft();
-}
-
-function removeSkillDraft(name) {
-  delete requiredSkillsDraft[name];
-  renderSkillsDraft();
-}
-
 function renderSkillsDraft() {
-  const container = document.getElementById("skills-draft-list");
-  const entries = Object.entries(requiredSkillsDraft);
-
-  if (entries.length === 0) {
-    container.innerHTML = `<span class="loading-text">No skills added yet.</span>`;
-    return;
-  }
-
-  container.innerHTML = entries.map(([skill, level]) => `
-    <span class="skill-tag" style="display:inline-flex; align-items:center; gap:6px;">
-      ${escapeHtml(skill)} — ${escapeHtml(level)}
-      <button type="button" onclick="removeSkillDraft('${escapeHtml(skill)}')" style="border:none;background:none;cursor:pointer;color:inherit;">×</button>
-    </span>
+  const container = document.getElementById("skills-draft");
+  container.innerHTML = Object.entries(skillsDraft).map(([s, l]) => `
+    <span class="skill-tag">${s} (${l}) <b onclick="removeDraft('${s}')" style="cursor:pointer; margin-left:4px;">×</b></span>
   `).join("");
 }
 
-async function handleCreateJob(e) {
-  e.preventDefault();
-
-  const title = document.getElementById("job-title-input").value.trim();
-  const location = document.getElementById("job-location-input").value.trim();
-  const minExperience = document.getElementById("job-experience-input").value.trim();
-  const description = document.getElementById("job-description-input").value.trim();
-  const errorBox = document.getElementById("job-form-error");
-  errorBox.style.display = "none";
-
-  if (!title) {
-    errorBox.textContent = "Job title is required.";
-    errorBox.style.display = "block";
-    return;
-  }
-  if (Object.keys(requiredSkillsDraft).length === 0) {
-    errorBox.textContent = "Add at least one required skill.";
-    errorBox.style.display = "block";
-    return;
-  }
-
-  try {
-    await api.createJob({
-      title,
-      location: location || null,
-      min_experience: minExperience || null,
-      description: description || null,
-      required_skills: requiredSkillsDraft,
-    });
-
-    // Reset form
-    document.getElementById("job-form").reset();
-    requiredSkillsDraft = {};
-    renderSkillsDraft();
-
-    loadJobs();
-  } catch (err) {
-    errorBox.textContent = err.message || "Failed to create job posting.";
-    errorBox.style.display = "block";
-  }
+function removeDraft(skill) {
+  delete skillsDraft[skill];
+  renderSkillsDraft();
 }
 
 async function loadJobs() {
-  const tbody = document.getElementById("jobs-tbody");
   try {
     const jobs = await api.getJobs();
-    if (jobs.length === 0) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="4">No job postings yet. Create one above.</td></tr>`;
+    const tbody = document.getElementById("jobs-tbody");
+    tbody.innerHTML = "";
+
+    if (!jobs || jobs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No job postings available.</td></tr>`;
       return;
     }
-    tbody.innerHTML = jobs.map((j) => `
-      <tr>
-        <td class="primary">${escapeHtml(j.title)}</td>
-        <td>${escapeHtml(j.location) || "—"}</td>
-        <td>${Object.keys(j.required_skills || {}).map(skillTagHTML).join("")}</td>
-        <td>
-          <button class="action-btn danger" onclick="deleteJobRow('${j.id}')" title="Delete">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          </button>
-        </td>
-      </tr>
-    `).join("");
+
+    jobs.forEach((j) => {
+      const skillsHtml = Object.keys(j.required_skills || {}).map(s => `<span class="skill-tag">${s}</span>`).join("");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><strong>${escapeHtml(j.title)}</strong></td>
+        <td>${escapeHtml(j.location || 'N/A')}</td>
+        <td>${skillsHtml}</td>
+        <td><button onclick="deleteJob('${j.id}')" style="border:none; background:none; cursor:pointer; color:#94a3b8;">🗑</button></td>
+      `;
+      tbody.appendChild(row);
+    });
   } catch (err) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="4">Failed to load job postings.</td></tr>`;
+    console.error("Error loading jobs:", err);
   }
 }
 
-async function deleteJobRow(id) {
+async function deleteJob(id) {
   if (!confirm("Delete this job posting?")) return;
   try {
     await api.deleteJob(id);
     loadJobs();
   } catch (err) {
-    alert("Failed to delete job posting: " + err.message);
+    alert("Failed to delete job: " + (err.message || err));
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

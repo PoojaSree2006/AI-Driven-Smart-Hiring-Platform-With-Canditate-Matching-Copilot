@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Recruitment Copilot - Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-badge">AI</div>
+        <div class="brand-name">Recruitment<br>Copilot</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link active">Dashboard</a>
+        <a href="upload.html" class="nav-link">Resume Upload</a>
+        <a href="jobs.html" class="nav-link">Job Postings</a>
+        <a href="matching.html" class="nav-link">Matching & Skill Analysis</a>
+        <a href="analytics.html" class="nav-link">Analytics</a>
+      </nav>
+      <div class="sidebar-footer">Light mode</div>
+    </div>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard Overview</h1>
+          <p class="page-subtitle">Summary metrics across your current talent pool</p>
+        </div>
+      </div>
+
+      <div class="grid-2" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+        <div class="card">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">TOTAL CANDIDATES</div>
+          <div id="stat-total" style="font-size:26px; font-weight:800; color:#1e3a8a;">0</div>
+        </div>
+        <div class="card">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">TOTAL UPLOADS</div>
+          <div id="stat-uploads" style="font-size:26px; font-weight:800; color:#1e3a8a;">0</div>
+        </div>
+        <div class="card">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">AVG EXPERIENCE</div>
+          <div id="stat-exp" style="font-size:26px; font-weight:800; color:#1e3a8a;">0 yrs</div>
+        </div>
+        <div class="card">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">SKILLS EXTRACTED</div>
+          <div id="stat-skills" style="font-size:26px; font-weight:800; color:#1e3a8a;">0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Recent Candidates</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>CANDIDATE</th>
+              <th>EXPERIENCE</th>
+              <th>KEY SKILLS</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="recent-tbody">
+            <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading candidates...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

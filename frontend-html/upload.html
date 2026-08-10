@@ -1,91 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resume Upload — Recruitment Copilot</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Recruitment Copilot - Resume Upload</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Clean inline enhancements to maintain proper visual layout */
+    .dropzone-container {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 32px 20px;
+      text-align: center;
+      background: #f8fafc;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+      cursor: pointer;
+    }
+    .dropzone-container:hover {
+      border-color: #2563eb;
+      background-color: #eff6ff;
+    }
+    .upload-icon-circle {
+      width: 48px;
+      height: 48px;
+      background: #dbeafe;
+      color: #2563eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px auto;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .candidate-name-link {
+      font-weight: 600;
+      color: #0f172a;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .candidate-name-link:hover {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: 12px;
+      max-width: 560px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
-    <div id="sidebar"></div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-badge">AI</div>
+        <div class="brand-name">Recruitment<br>Copilot</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="upload.html" class="nav-link active">Resume Upload</a>
+        <a href="jobs.html" class="nav-link">Job Postings</a>
+        <a href="matching.html" class="nav-link">Matching & Skill Analysis</a>
+        <a href="analytics.html" class="nav-link">Analytics</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span>Light mode</span>
+      </div>
+    </div>
 
+    <!-- Main Workspace -->
     <main class="main-content">
-      <h1 class="page-title">Resume Parsing &amp; Candidate Profiling</h1>
-      <p class="page-subtitle">Upload and process resumes to create structured candidate profiles</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Resume Parsing & Candidate Profiling</h1>
+          <p class="page-subtitle">Upload and process resumes to generate structured candidate profiles</p>
+        </div>
+        <span class="milestone-badge">Milestone 1</span>
+      </div>
 
-      <div class="grid grid-2">
+      <div class="grid-2">
         <!-- Upload Card -->
         <div class="card">
-          <h2 class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            Upload Resume
-          </h2>
-
-          <div id="dropzone" class="dropzone">
-            <div class="dropzone-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            </div>
-            <p>Drag and drop one or more resumes or click to browse</p>
-            <button id="browse-btn" class="btn-primary" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Upload Files
-            </button>
-            <input id="file-input" type="file" accept=".pdf,.docx" multiple hidden />
-            <small>Supported formats: PDF, DOCX . You can upload multiple resumes at once.</small>
+          <h2 class="card-title">Upload Resumes</h2>
+          <div class="dropzone-container" id="dropzone">
+            <div class="upload-icon-circle">↑</div>
+            <p style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 4px;">Drag and drop resumes here</p>
+            <p style="font-size: 12px; color: #94a3b8; margin-bottom: 16px;">or select files from your computer</p>
+            <button class="btn-primary" id="browse-btn" type="button" style="padding: 8px 20px; font-size: 13px;">Browse Files</button>
+            <input type="file" id="file-input" accept=".pdf,.docx" multiple hidden>
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 16px;">Supported formats: PDF, DOCX (Batch upload enabled)</p>
           </div>
-
-          <div id="file-info" class="file-info" style="display:none;"></div>
-          <p id="upload-error" class="error-text" style="display:none;"></p>
         </div>
 
         <!-- Parsing Progress Card -->
         <div class="card">
-          <h2 class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            Parsing Progress
-          </h2>
+          <h2 class="card-title">Parsing Overview</h2>
+          <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Real-time database metrics</p>
 
-          <div class="progress-row">
-            <span>Extraction Progress</span>
-            <span id="progress-pct">0%</span>
-          </div>
-          <div class="progress-track">
-            <div id="progress-fill" class="progress-fill"></div>
+          <div class="stats-grid">
+            <div>
+              <div style="font-size: 20px; font-weight: 700; color: #0f172a;" id="stat-processed">0</div>
+              <div style="font-size: 11px; color: #64748b; font-weight: 500;">Processed</div>
+            </div>
+            <div>
+              <div style="font-size: 20px; font-weight: 700; color: #16a34a;">100%</div>
+              <div style="font-size: 11px; color: #64748b; font-weight: 500;">Accuracy</div>
+            </div>
+            <div>
+              <div style="font-size: 20px; font-weight: 700; color: #0f172a;" id="stat-created">0</div>
+              <div style="font-size: 11px; color: #64748b; font-weight: 500;">Profiles</div>
+            </div>
           </div>
 
-          <div id="extracted-info" class="extracted-info" style="display:none;"></div>
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 8px;">
+            <h3 style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Most Recent Extraction</h3>
+            <div id="recent-extraction-container">
+              <p style="font-size: 12px; color: #94a3b8;">No recent upload detected. Upload a candidate resume to view parsed details.</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Recently Processed -->
-      <div class="card table-card" style="margin-top:20px;">
-        <div style="padding:20px 20px 0 20px;">
-          <h2 class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            Recently Processed Candidates
-          </h2>
+      <!-- Recently Processed Candidates Table -->
+      <div class="card" style="margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h2 class="card-title" style="margin-bottom: 2px;">Processed Candidate Directory</h2>
+            <p style="font-size: 12px; color: #64748b;">Click on a candidate's name to view full profile and internships</p>
+          </div>
+          <a href="#" id="export-csv" style="font-size: 12px; color: #2563eb; font-weight: 600; text-decoration: none;">Download CSV</a>
         </div>
         <table>
           <thead>
             <tr>
-              <th>Candidate Name</th>
-              <th>Email</th>
-              <th>Experience</th>
-              <th>Key Skills</th>
-              <th>Status</th>
+              <th>CANDIDATE</th>
+              <th>EXPERIENCE</th>
+              <th>TOP SKILLS</th>
+              <th>STATUS</th>
+              <th style="text-align: right;">ACTION</th>
             </tr>
           </thead>
-          <tbody id="recent-tbody">
-            <tr class="empty-row"><td colspan="5">No candidates processed yet.</td></tr>
+          <tbody id="candidates-tbody">
+            <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 24px;">Loading candidate records...</td></tr>
           </tbody>
         </table>
       </div>
     </main>
   </div>
 
-  <script src="js/sidebar.js"></script>
-  <script src="js/components.js"></script>
+  <!-- Candidate Detail Modal Overlay -->
+  <div id="modal-overlay" class="modal-backdrop">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <h2 id="modal-title" style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0;">Candidate Profile</h2>
+          <p style="font-size: 11px; color: #64748b; margin-top: 2px;">Parsed Resume Data</p>
+        </div>
+        <button id="modal-close" type="button" style="border: none; background: #f1f5f9; border-radius: 50%; width: 28px; height: 28px; color: #64748b; cursor: pointer; font-weight: 700;">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
   <script src="js/api.js"></script>
   <script src="js/upload.js"></script>
 </body>
