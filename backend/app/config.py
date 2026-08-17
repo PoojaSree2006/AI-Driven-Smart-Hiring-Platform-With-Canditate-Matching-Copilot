@@ -1,23 +1,16 @@
+from __future__ import annotations
+
 """
 config.py
 =========
 Centralized application configuration.
-
-Why this exists:
------------------
-Instead of scattering `os.getenv()` calls (and their default-value bugs)
-across services and routes, we load all environment-driven settings
-into a single validated `Settings` object using pydantic-settings.
-
-This gives us:
-- Type validation at startup (fail fast if something is misconfigured)
-- Autocomplete/IDE support wherever settings are used
-- A single source of truth for paths, limits, and DB config
+Fully compatible with Python 3.8 and Pydantic v2.
 """
 
+import os
 from pathlib import Path
 from functools import lru_cache
-from typing import Tuple
+from typing import Tuple, List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -52,6 +45,9 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = ""
     DB_NAME: str = "recruitment_copilot"
 
+    # --- API Keys & External Integrations ---
+    GEMINI_API_KEY: str = ""
+
     # --- File Storage Paths ---
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     EXTRACTED_DATA_DIR: Path = BASE_DIR / "extracted_data"
@@ -60,23 +56,22 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 10
     ALLOWED_EXTENSIONS: Tuple[str, ...] = (".pdf", ".docx")
 
-    CORS_ORIGINS: list[str] = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-]
+    # --- CORS Configuration ---
+    CORS_ORIGINS: List[str] = [
+        "http://localhost",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "*",
+    ]
 
     @property
     def DATABASE_URL(self) -> str:
         """
         Builds the SQLAlchemy connection URL for MySQL via PyMySQL.
-
-        We use SQLAlchemy's URL.create() instead of an f-string so that
-        special characters in DB_PASSWORD (e.g. @, #, /, %) are correctly
-        percent-encoded. Hand-building this string with an f-string is a
-        common source of "connection refused" bugs that are actually
-        just malformed URLs.
         """
         return URL.create(
             drivername="mysql+pymysql",
@@ -94,7 +89,10 @@ class Settings(BaseSettings):
         return self.MAX_FILE_SIZE_MB * 1024 * 1024
 
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR.parent / ".env"),  # .env at project root
+        env_file=[
+            str(BASE_DIR.parent / ".env"),  # .env at project root
+            str(BASE_DIR / ".env"),         # .env inside backend/
+        ],
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -104,10 +102,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Returns a cached Settings instance.
-
-    Using lru_cache means the .env file is read and validated only once
-    per process, and the same Settings object is reused everywhere via
-    dependency injection (FastAPI's Depends(get_settings)).
     """
     settings = Settings()
 

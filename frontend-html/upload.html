@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" href="data:,">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Recruitment Copilot - Resume Upload</title>
@@ -76,21 +77,24 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- Sidebar -->
+    <!-- Unified Sidebar Navigation -->
     <div class="sidebar">
       <div class="sidebar-brand">
-        <div class="logo-badge">AI</div>
+        <div class="logo-badge">RC</div>
         <div class="brand-name">Recruitment<br>Copilot</div>
       </div>
       <nav class="sidebar-nav">
         <a href="dashboard.html" class="nav-link">Dashboard</a>
         <a href="upload.html" class="nav-link active">Resume Upload</a>
         <a href="jobs.html" class="nav-link">Job Postings</a>
-        <a href="matching.html" class="nav-link">Matching & Skill Analysis</a>
+        <a href="matching.html" class="nav-link">Matching &amp; Skill Analysis</a>
+        <a href="interview.html" class="nav-link">Interview Assistant</a>
         <a href="analytics.html" class="nav-link">Analytics</a>
       </nav>
       <div class="sidebar-footer">
-        <span>Light mode</span>
+        <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()">
+          🌙 Dark mode
+        </button>
       </div>
     </div>
 
@@ -98,7 +102,7 @@
     <main class="main-content">
       <div class="page-header">
         <div>
-          <h1 class="page-title">Resume Parsing & Candidate Profiling</h1>
+          <h1 class="page-title">Resume Parsing &amp; Candidate Profiling</h1>
           <p class="page-subtitle">Upload and process resumes to generate structured candidate profiles</p>
         </div>
         <span class="milestone-badge">Milestone 1</span>
@@ -187,7 +191,7 @@
       <div id="modal-body"></div>
     </div>
   </div>
-
+  <script src="js/theme.js"></script>
   <script src="js/api.js"></script>
   <script src="js/upload.js"></script>
 </body>

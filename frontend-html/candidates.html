@@ -1,93 +1,221 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" href="data:,">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Candidates — Recruitment Copilot</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
+
 <body>
+
   <div class="app-shell">
+
     <div id="sidebar"></div>
 
     <main class="main-content">
-      <h1 class="page-title">Candidates</h1>
-      <p class="page-subtitle">Browse candidates, run job matching, and review skill gaps</p>
 
-      <!-- ============ NEW — Milestone 2: Candidate Matching ============ -->
+      <h1 class="page-title">Candidates</h1>
+      <p class="page-subtitle">
+        Browse candidates, run job matching, and review skill gaps
+      </p>
+
+
+      <!-- Candidate Matching -->
       <div class="card" style="margin-bottom:20px;">
+
         <h2 class="card-title">Candidate Matching</h2>
-        <p class="page-subtitle" style="margin-bottom:12px;">Candidate-job matching and skill-gap analysis</p>
+
+        <p class="page-subtitle" style="margin-bottom:12px;">
+          Candidate-job matching and skill-gap analysis
+        </p>
 
         <div style="max-width:320px; margin-bottom:16px;">
-          <label style="font-size:13px; color:var(--gray-500); display:block; margin-bottom:4px;">Job Position</label>
-          <select id="match-job-select" class="search-input" style="padding-left:12px;">
+
+          <label
+            style="
+              font-size:13px;
+              color:var(--gray-500);
+              display:block;
+              margin-bottom:4px;
+            "
+          >
+            Job Position
+          </label>
+
+          <select
+            id="match-job-select"
+            class="search-input"
+            style="padding-left:12px;"
+          >
             <option value="">Loading job postings…</option>
           </select>
+
         </div>
 
+
         <table>
+
           <thead>
-            <thead>
             <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Skills</th>
-                <th>Experience</th>
-                <th>Status</th>
-                <th>Actions</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Skills</th>
+              <th>Experience</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-            </thead>
+          </thead>
+
           <tbody id="match-tbody">
-            <tr class="empty-row"><td colspan="4">Select a job posting to see ranked candidates.</td></tr>
+
+            <tr class="empty-row">
+              <td colspan="6">
+                Select a job posting to see ranked candidates.
+              </td>
+            </tr>
+
           </tbody>
+
         </table>
+
       </div>
 
-      <!-- ============ NEW — Milestone 2: Skill Gap Analysis ============ -->
-      <div id="skill-gap-panel" class="card" style="margin-bottom:20px; display:none;">
-        <h2 id="skill-gap-title" class="card-title">Skill Gap Analysis</h2>
+
+      <!-- Skill Gap Analysis -->
+
+      <div
+        id="skill-gap-panel"
+        class="card"
+        style="margin-bottom:20px; display:none;"
+      >
+
+        <h2 id="skill-gap-title" class="card-title">
+          Skill Gap Analysis
+        </h2>
+
         <div id="skill-gap-body"></div>
+
       </div>
 
-      <!-- ============ Milestone 1: Candidate list — unchanged ============ -->
+
+      <!-- Candidate Search -->
+
       <div class="search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="search-input" class="search-input" type="text" placeholder="Search by name or email…" />
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="11" cy="11" r="8"/>
+          <line
+            x1="21"
+            y1="21"
+            x2="16.65"
+            y2="16.65"
+          />
+        </svg>
+
+        <input
+          id="search-input"
+          class="search-input"
+          type="text"
+          placeholder="Search by name or email…"
+        />
+
       </div>
+
+
+      <!-- Candidate List -->
 
       <div class="card table-card">
+
         <table>
+
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
               <th>Experience</th>
               <th>Skills</th>
-              <th style="text-align:right;">Actions</th>
+              <th style="text-align:right;">
+                Actions
+              </th>
             </tr>
           </thead>
+
           <tbody id="candidates-tbody">
-            <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+
+            <tr class="empty-row">
+              <td colspan="5">
+                Loading…
+              </td>
+            </tr>
+
           </tbody>
+
         </table>
+
       </div>
+
     </main>
+
   </div>
 
-  <!-- Candidate Detail Modal — Milestone 1, unchanged -->
+
+  <!-- Candidate Detail Modal -->
+
   <div id="modal-overlay" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2 id="modal-title">Candidate</h2>
-        <button id="modal-close" class="modal-close" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div id="modal-body"></div>
-    </div>
-  </div>
 
+    <div class="modal-box">
+
+      <div class="modal-header">
+
+        <h2 id="modal-title">
+          Candidate
+        </h2>
+
+        <button
+          id="modal-close"
+          class="modal-close"
+          type="button"
+        >
+
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line
+              x1="18"
+              y1="6"
+              x2="6"
+              y2="18"
+            />
+
+            <line
+              x1="6"
+              y1="6"
+              x2="18"
+              y2="18"
+            />
+
+          </svg>
+
+        </button>
+
+      </div>
+
+      <div id="modal-body"></div>
+
+    </div>
+
+  </div>
+  <!-- JavaScript -->
   <script src="js/sidebar.js"></script>
   <script src="js/components.js"></script>
   <script src="js/api.js"></script>

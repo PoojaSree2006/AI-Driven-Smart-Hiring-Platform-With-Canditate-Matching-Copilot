@@ -1,18 +1,45 @@
+/* ============================================================
+   1. Theme Variables & Modes
+   ============================================================ */
 :root {
   --primary-color: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-light: #eff6ff;
-  --bg-color: #f8fafc;
-  --card-bg: #ffffff;
+  --bg-app: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-subtle: #f1f5f9;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
+  --border-subtle: #cbd5e1;
+  --input-bg: #ffffff;
+  --table-header-bg: #f8fafc;
   --green-bg: #dcfce7;
   --green-text: #15803d;
   --red-badge: #ef4444;
   --orange-badge: #f97316;
 }
 
+body.dark-mode {
+  --primary-light: #1e3a8a;
+  --bg-app: #090d16;
+  --bg-sidebar: #111827;
+  --bg-card: #1f2937;
+  --bg-subtle: #111827;
+  --text-main: #f9fafb;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --border-subtle: #4b5563;
+  --input-bg: #111827;
+  --table-header-bg: #111827;
+  --green-bg: #064e3b;
+  --green-text: #6ee7b7;
+}
+
+/* ============================================================
+   2. Global Reset & App Shell
+   ============================================================ */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -21,42 +48,49 @@
 }
 
 body {
-  background-color: var(--bg-color);
+  background-color: var(--bg-app);
   color: var(--text-main);
-  display: flex;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .app-shell {
   display: flex;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
 }
 
-/* Sidebar Navigation */
+/* ============================================================
+   3. Sidebar Navigation (Pinned & Left-Aligned)
+   ============================================================ */
 .sidebar {
   width: 240px;
-  background-color: #ffffff;
+  min-width: 240px;
+  background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 20px 16px;
-  position: fixed;
   height: 100vh;
+  position: sticky;
+  top: 0;
+  padding: 20px 16px;
+  box-sizing: border-box;
   z-index: 100;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .logo-badge {
   width: 36px;
   height: 36px;
   background-color: var(--primary-color);
-  color: white;
+  color: #ffffff;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -76,7 +110,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex: 1; /* Pushes the footer cleanly to the bottom */
 }
 
 .nav-link {
@@ -92,24 +126,59 @@ body {
   transition: all 0.15s ease;
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-main);
+}
+
+.nav-link.active {
   background-color: var(--primary-light);
   color: var(--primary-color);
   font-weight: 600;
 }
 
-.sidebar-footer {
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color);
-  font-size: 12px;
-  color: var(--text-muted);
+body.dark-mode .nav-link.active {
+  color: #93c5fd;
 }
 
-/* Page Layout */
+/* Sidebar Footer & Dark Mode Switch */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+/* ============================================================
+   4. Main Content Layout
+   ============================================================ */
 .main-content {
-  margin-left: 240px;
   flex: 1;
   padding: 32px 40px;
+  max-width: 1300px;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -120,7 +189,7 @@ body {
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -132,16 +201,20 @@ body {
 }
 
 .milestone-badge {
-  background-color: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* Card & Table Component Layouts */
+/* ============================================================
+   5. Cards, Forms & Inputs
+   ============================================================ */
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -150,10 +223,11 @@ body {
 }
 
 .card {
-  background: var(--card-bg);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .card-title {
@@ -163,10 +237,21 @@ body {
   margin-bottom: 16px;
 }
 
+input, select, textarea {
+  background-color: var(--input-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-color);
+}
+
 .skill-tag {
   display: inline-block;
   background-color: var(--primary-light);
-  color: #1e40af;
+  color: var(--primary-color);
   padding: 3px 10px;
   border-radius: 6px;
   font-size: 11px;
@@ -177,7 +262,7 @@ body {
 
 .btn-primary {
   background-color: var(--primary-color);
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 8px 18px;
   border-radius: 6px;
@@ -191,6 +276,9 @@ body {
   background-color: var(--primary-hover);
 }
 
+/* ============================================================
+   6. Tables & Status Indicators
+   ============================================================ */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -202,13 +290,15 @@ th {
   font-size: 11px;
   text-transform: uppercase;
   color: var(--text-muted);
+  background-color: var(--table-header-bg);
   padding: 12px 8px;
   border-bottom: 1px solid var(--border-color);
 }
 
 td {
   padding: 14px 8px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
 }
 
 .status-pill {
@@ -228,4 +318,49 @@ td {
   height: 6px;
   background-color: var(--green-text);
   border-radius: 50%;
+}
+
+/* ============================================================
+   7. Interview Assistant & Chat Styles (Milestone 3)
+   ============================================================ */
+.chat-msg {
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-msg.ai,
+.chat-bubble-ai {
+  color: var(--text-main);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.chat-msg.user,
+.chat-bubble-user {
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: right;
+}
+
+body.dark-mode .chat-bubble-user {
+  color: #dbeafe;
+  background: #1e3a8a;
+  border-color: #2563eb;
+}
+
+body.dark-mode .ats-card,
+body.dark-mode .question-card {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .q-text,
+body.dark-mode .ats-name {
+  color: var(--text-main);
 }

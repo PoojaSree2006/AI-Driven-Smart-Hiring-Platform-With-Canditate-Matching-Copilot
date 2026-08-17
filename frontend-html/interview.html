@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="data:,">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Driven Smart Hiring Platform - Interview Assistant & ATS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Milestone 3 Specific Layout Enhancements */
+    .interview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 20px;
+    }
+    @media (max-width: 992px) {
+      .interview-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .question-card {
+      display: flex;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-card);
+      margin-bottom: 14px;
+    }
+    .q-number {
+      width: 28px;
+      height: 28px;
+      background: var(--primary-color);
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .q-body {
+      flex: 1;
+    }
+    .q-text {
+      font-size: 13px;
+      color: var(--text-main);
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .q-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .ats-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 14px;
+      flex: 1;
+    }
+    .ats-avatar {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-color);
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .btn-danger-outline {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: not-allowed;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-danger-outline.active {
+      border-color: #ef4444;
+      color: #ef4444;
+      background: #fef2f2;
+      cursor: pointer;
+    }
+    body.dark-mode .btn-danger-outline.active {
+      background: #450a0a;
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Unified Sidebar Navigation -->
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-badge">RC</div>
+        <div class="brand-name">Recruitment<br>Copilot</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="upload.html" class="nav-link">Resume Upload</a>
+        <a href="jobs.html" class="nav-link">Job Postings</a>
+        <a href="matching.html" class="nav-link">Matching &amp; Skill Analysis</a>
+        <a href="interview.html" class="nav-link active">Interview Assistant</a>
+        <a href="analytics.html" class="nav-link">Analytics</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()">
+          🌙 Dark mode
+        </button>
+      </div>
+    </div>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Interview Assistance &amp; ATS Integration</h1>
+          <p class="page-subtitle">Generate interview questions, simulate interviews, and manage candidates</p>
+        </div>
+        <span class="milestone-badge">Milestone 3</span>
+      </div>
+
+      <div class="interview-grid">
+        <!-- Left Column: Interview Question Generator -->
+        <div class="card">
+          <h2 class="card-title">📝 Interview Question Generator</h2>
+
+          <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <div style="flex:1;">
+              <label style="font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Job Position</label>
+              <select id="job-select" style="width:100%; padding:9px; border-radius:6px; font-size:13px; margin-top:4px;">
+                <option value="">Loading job positions...</option>
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Question Type</label>
+              <select id="type-select" style="width:100%; padding:9px; border-radius:6px; font-size:13px; margin-top:4px;">
+                <option value="Technical Skills">Technical Skills</option>
+                <option value="Behavioral">Behavioral</option>
+                <option value="System Design">System Design</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="generate-btn" class="btn-primary" style="margin-bottom:20px; width:100%; padding:10px; font-weight:600; border-radius:6px;">
+            Generate Questions
+          </button>
+
+          <div id="questions-container">
+            <p style="font-size:12px; color:var(--text-muted);">Select a position and click generate to view tailored questions.</p>
+          </div>
+        </div>
+
+        <!-- Right Column: AI Interview Simulation & ATS Pipeline -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+              <h2 class="card-title" style="margin-bottom:0;">🤖 AI Interview Simulation</h2>
+              <p id="sim-candidate-header" style="font-size:13px; color:var(--text-muted); margin-top:2px;">Candidate: Select candidate below</p>
+            </div>
+            <span id="session-badge" style="background:var(--bg-subtle); color:var(--text-muted); padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700;">No Active Session</span>
+          </div>
+
+          <!-- Top Dropdown & Start Interview Row -->
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <select id="candidate-select" style="flex:1; padding:9px; border-radius:6px; font-size:13px;">
+              <option value="">Loading candidate directory...</option>
+            </select>
+            <button id="start-interview-btn" class="btn-primary" style="padding:8px 16px; font-weight:600; min-width:130px;">
+              Start Interview
+            </button>
+          </div>
+
+          <!-- Chat Messages Container -->
+          <div class="chat-box" id="chat-box" style="border:1px solid var(--border-color); border-radius:8px; height:240px; overflow-y:auto; padding:12px; background:var(--bg-subtle); margin-bottom:12px;">
+            <div class="chat-msg ai" id="chat-welcome-msg">
+              Select a candidate from the dropdown and click 'Start Interview' to initiate the simulated technical conversation.
+            </div>
+          </div>
+
+          <!-- Chat Input Controls & Action Buttons -->
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
+            <input type="text" id="chat-input" placeholder="Type your response..." style="flex:1; padding:9px 12px; border-radius:6px; font-size:13px;" disabled>
+            <button id="send-msg-btn" class="btn-primary" style="padding:8px 18px; font-weight:600;" disabled>
+              Send
+            </button>
+            <button id="end-interview-btn" type="button" class="btn-danger-outline" disabled>
+              End Interview
+            </button>
+          </div>
+
+          <!-- ATS Integration Section -->
+          <div style="border-top:1px solid var(--border-color); padding-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <span style="font-size:13px; font-weight:700; color:var(--text-main);">ATS Integration</span>
+              <span style="font-size:11px; color:var(--green-text); font-weight:700;">● Connected</span>
+            </div>
+
+            <!-- ATS Candidate Quick Cards -->
+            <div id="ats-candidates-container" style="display:flex; gap:12px; margin-bottom:12px;">
+              <!-- Populated dynamically via JS -->
+            </div>
+
+            <!-- ATS Action Status Buttons -->
+            <div style="display:flex; justify-content:flex-end; gap:6px;">
+              <button onclick="updateCandidatePipelineStatus('SCHEDULED')" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:11px; font-weight:700; padding:6px 12px; border-radius:6px; cursor:pointer;">Schedule</button>
+              <button onclick="updateCandidatePipelineStatus('SHORTLISTED')" style="background:var(--green-bg); color:var(--green-text); border:1px solid #bbf7d0; font-size:11px; font-weight:700; padding:6px 12px; border-radius:6px; cursor:pointer;">Shortlist</button>
+              <button onclick="updateCandidatePipelineStatus('REJECTED')" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; font-size:11px; font-weight:700; padding:6px 12px; border-radius:6px; cursor:pointer;">Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/theme.js"></script>
+  <script src="js/api.js?v=3.0"></script>
+  <script src="js/interview.js?v=3.0"></script>
+</body>
+</html>

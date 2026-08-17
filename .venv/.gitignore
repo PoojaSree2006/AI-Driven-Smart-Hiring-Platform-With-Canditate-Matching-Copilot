@@ -1,0 +1,37 @@
+# --- Sensitive Credentials & Environment ---
+.env
+*.env
+.env.*
+!.env.example
+
+# --- Python & Bytecode Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Database & Local Uploads ---
+*.sqlite3
+*.db
+uploads/
+backend/uploads/
+*.pdf
+*.docx
+
+# --- IDE & OS Files ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

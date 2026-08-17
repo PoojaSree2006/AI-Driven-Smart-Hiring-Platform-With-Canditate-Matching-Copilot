@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { id: "upload", href: "upload.html", label: "Resume Upload" },
   { id: "jobs", href: "jobs.html", label: "Job Postings" },
   { id: "matching", href: "matching.html", label: "Matching & Skill Analysis" },
+  { id: "interview", href: "interview.html", label: "Interview Assistant" },
   { id: "analytics", href: "analytics.html", label: "Analytics" }
 ];
 
@@ -25,7 +26,7 @@ function renderSidebar(activeId) {
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="logo-badge">AI</div>
-        <div class="brand-name">Recruitment<br>Copilot</div>
+        <div class="brand-name">Smart Hiring<br>Copilot</div>
       </div>
       <nav class="sidebar-nav">
         ${links}

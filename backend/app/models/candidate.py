@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 """
 models/candidate.py
 ====================
 SQLAlchemy ORM model for the `candidates` table.
 Includes fields for skills, education, experience, projects, certifications,
-internships, and trainings stored as JSON columns.
+internships, trainings, and interview simulation logs stored as JSON columns.
 """
 
 import uuid
@@ -56,8 +58,9 @@ class Candidate(Base):
     resume_file_path = Column(String(1000), nullable=True)
     extracted_json_path = Column(String(1000), nullable=True)
 
-    # --- Status ---
-    status = Column(String(50), default="processed")
+    # --- Milestone 3 Extensions: Status & Interview Logs ---
+    status = Column(String(50), default="processed")  # e.g. "processed", "scheduled", "shortlisted", "rejected"
+    interview_notes = Column(JSON, nullable=True, default=list)
 
     # --- Timestamps ---
     created_at = Column(

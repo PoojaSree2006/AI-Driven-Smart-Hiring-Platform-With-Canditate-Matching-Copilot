@@ -29,14 +29,19 @@ async function loadJobs() {
     const jobs = await api.getJobs();
     const select = document.getElementById("job-select");
 
+    if (!select) return;
+
     if (!jobs || jobs.length === 0) {
       select.innerHTML = `<option value="">No job positions found</option>`;
       return;
     }
 
-    select.innerHTML = jobs.map(j => `<option value="${j.id}">${escapeHtml(j.title)}</option>`).join("");
+    select.innerHTML = jobs
+      .map((j) => `<option value="${j.id}">${escapeHtml(j.title)}</option>`)
+      .join("");
+
     currentJobId = jobs[0].id;
-    loadMatches(currentJobId);
+    await loadMatches(currentJobId);
   } catch (err) {
     console.error("Error loading jobs:", err);
   }
@@ -46,6 +51,8 @@ async function loadMatches(jobId) {
   try {
     const matches = await api.matchCandidates(jobId);
     const container = document.getElementById("match-list");
+
+    if (!container) return;
     container.innerHTML = "";
 
     if (!matches || matches.length === 0) {
@@ -54,26 +61,36 @@ async function loadMatches(jobId) {
     }
 
     matches.forEach((m, index) => {
-      const skillsHtml = (m.matched_skills || []).map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("");
-      const badgeClass = m.match_percentage >= 70 ? "badge-high" : "badge-mid";
+      const skillsHtml = (m.matched_skills || [])
+        .map((s) => `<span class="skill-tag">${escapeHtml(s)}</span>`)
+        .join("");
+
+      // Support varied backend property naming conventions
+      const matchPct = m.match_percentage ?? m.match_score ?? m.score ?? 0;
+      const skillScore = m.skill_score ?? matchPct;
+      const expScore = m.experience_score ?? 100;
+      const candExp = m.candidate_exp_years ?? m.experience_years ?? 0;
+      const reqExp = m.required_min_exp ?? 0;
+
+      const badgeClass = matchPct >= 70 ? "badge-high" : "badge-mid";
       const candId = m.candidate_id || m.id;
 
       const card = document.createElement("div");
-      card.className = `match-card ${index === 0 ? 'selected' : ''}`;
+      card.className = `match-card ${index === 0 ? "selected" : ""}`;
       card.style.cursor = "pointer";
-      card.onclick = () => loadSkillGap(candId, jobId, m.name, card);
+      card.onclick = () => loadSkillGap(candId, jobId, m.name, card, m);
 
       card.innerHTML = `
         <div style="flex:1;">
-          <strong style="font-size: 14px;">${escapeHtml(m.name || 'Candidate')}</strong>
+          <strong style="font-size: 14px;">${escapeHtml(m.name || "Candidate")}</strong>
           <div style="margin-top: 4px;">${skillsHtml || '<span style="font-size:11px; color:#94a3b8;">No skills matched</span>'}</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
-            <span>Skill Score: <strong>${m.skill_score}%</strong></span> &bull; 
-            <span>Exp Score: <strong>${m.experience_score}%</strong> (${m.candidate_exp_years} / ${m.required_min_exp} yrs req)</span>
+            <span>Skill Score: <strong>${skillScore}%</strong></span> &bull; 
+            <span>Exp Score: <strong>${expScore}%</strong> (${candExp} / ${reqExp} yrs req)</span>
           </div>
         </div>
         <div class="match-badge ${badgeClass}">
-          <span>${m.match_percentage}%</span>
+          <span>${matchPct}%</span>
           <span style="font-size: 8px;">MATCH</span>
         </div>
       `;
@@ -82,26 +99,38 @@ async function loadMatches(jobId) {
 
     if (matches.length > 0) {
       const first = matches[0];
-      loadSkillGap(first.candidate_id || first.id, jobId, first.name);
+      await loadSkillGap(first.candidate_id || first.id, jobId, first.name, null, first);
     }
   } catch (err) {
     console.error("Error loading matches:", err);
   }
 }
 
-async function loadSkillGap(candidateId, jobId, candidateName, cardElement) {
+async function loadSkillGap(candidateId, jobId, candidateName, cardElement, matchObj = null) {
   if (cardElement) {
-    document.querySelectorAll(".match-card").forEach(c => c.classList.remove("selected"));
+    document.querySelectorAll(".match-card").forEach((c) => c.classList.remove("selected"));
     cardElement.classList.add("selected");
   }
 
-  document.getElementById("gap-candidate-lbl").textContent = `Candidate: ${candidateName || 'Candidate'}`;
+  const labelElem = document.getElementById("gap-candidate-lbl");
+  if (labelElem) {
+    labelElem.textContent = `Candidate: ${candidateName || "Candidate"}`;
+  }
 
   try {
-    const gapData = await api.getSkillGap(candidateId, jobId);
+    let gapData = null;
+
+    // Check if dedicated API endpoint exists, otherwise build fallback gap object
+    if (typeof api.getSkillGap === "function") {
+      gapData = await api.getSkillGap(candidateId, jobId);
+    } else {
+      gapData = buildFallbackSkillGapData(candidateName, matchObj);
+    }
+
     activeSkillGapData = gapData; // Cache for report generator
 
     const container = document.getElementById("gap-skills-list");
+    if (!container) return;
     container.innerHTML = "";
 
     const gaps = gapData.gaps || [];
@@ -109,7 +138,7 @@ async function loadSkillGap(candidateId, jobId, candidateName, cardElement) {
       container.innerHTML = `<p style="font-size:12px; color:#94a3b8;">No skill requirements defined for this job position.</p>`;
     }
 
-    gaps.forEach(g => {
+    gaps.forEach((g) => {
       const isMatched = g.status === "matched";
       const barColor = isMatched ? "#22c55e" : "#ef4444";
       const statusText = isMatched ? "Detected" : "Gap";
@@ -131,7 +160,7 @@ async function loadSkillGap(candidateId, jobId, candidateName, cardElement) {
           </span>
         </div>
         <div style="height: 8px; background-color: #f1f5f9; border-radius: 4px; overflow: hidden;">
-          <div style="width: ${isMatched ? '100%' : '15%'}; height: 100%; background-color: ${barColor}; transition: width 0.3s ease;"></div>
+          <div style="width: ${isMatched ? "100%" : "15%"}; height: 100%; background-color: ${barColor}; transition: width 0.3s ease;"></div>
         </div>
       `;
       container.appendChild(item);
@@ -155,6 +184,46 @@ async function loadSkillGap(candidateId, jobId, candidateName, cardElement) {
   }
 }
 
+function buildFallbackSkillGapData(candidateName, matchObj) {
+  if (!matchObj) {
+    return {
+      candidate_name: candidateName || "Candidate",
+      job_title: "Position",
+      gaps: [],
+      recommendation: "Evaluation complete."
+    };
+  }
+
+  const matched = matchObj.matched_skills || [];
+  const missing = matchObj.missing_skills || [];
+
+  const gaps = [
+    ...matched.map((s) => ({
+      skill: s,
+      status: "matched",
+      candidate_level: "Proficient",
+      required_level: "Required"
+    })),
+    ...missing.map((s) => ({
+      skill: s,
+      status: "missing",
+      candidate_level: "Not Detected",
+      required_level: "Required"
+    }))
+  ];
+
+  const rec = missing.length > 0
+    ? `Recommend targeted upskilling in: ${missing.join(", ")}.`
+    : "Strong candidate match with 100% required skill coverage.";
+
+  return {
+    candidate_name: candidateName || matchObj.name || "Candidate",
+    job_title: "Position",
+    gaps: gaps,
+    recommendation: rec
+  };
+}
+
 function downloadSkillGapReport() {
   if (!activeSkillGapData) {
     alert("No skill gap analysis available to export.");
@@ -168,8 +237,8 @@ function downloadSkillGapReport() {
   reportText += `       AI RECRUITMENT COPILOT - SKILL GAP REPORT\n`;
   reportText += `==================================================\n\n`;
   reportText += `Date Generated: ${timestamp}\n`;
-  reportText += `Candidate Name: ${d.candidate_name || 'Candidate'}\n`;
-  reportText += `Target Position: ${d.job_title || 'Position'}\n\n`;
+  reportText += `Candidate Name: ${d.candidate_name || "Candidate"}\n`;
+  reportText += `Target Position: ${d.job_title || "Position"}\n\n`;
   reportText += `--------------------------------------------------\n`;
   reportText += `SKILL EVALUATION BREAKDOWN\n`;
   reportText += `--------------------------------------------------\n`;
@@ -184,14 +253,14 @@ function downloadSkillGapReport() {
   reportText += `--------------------------------------------------\n`;
   reportText += `RECOMMENDATIONS & UPSKILLING PLAN\n`;
   reportText += `--------------------------------------------------\n`;
-  reportText += `${d.recommendation || 'None'}\n\n`;
+  reportText += `${d.recommendation || "None"}\n\n`;
   reportText += `==================================================\n`;
 
   const blob = new Blob([reportText], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Skill_Gap_Report_${(d.candidate_name || 'Candidate').replace(/\s+/g, '_')}.txt`;
+  a.download = `Skill_Gap_Report_${(d.candidate_name || "Candidate").replace(/\s+/g, "_")}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 }

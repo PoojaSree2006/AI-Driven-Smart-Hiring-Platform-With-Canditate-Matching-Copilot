@@ -1,25 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" href="data:,">
   <meta charset="UTF-8">
-  <title>AI Recruitment Copilot - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Driven Smart Hiring Platform - Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="app-shell">
+    <!-- Unified Sidebar Navigation -->
     <div class="sidebar">
       <div class="sidebar-brand">
-        <div class="logo-badge">AI</div>
+        <div class="logo-badge">RC</div>
         <div class="brand-name">Recruitment<br>Copilot</div>
       </div>
       <nav class="sidebar-nav">
         <a href="dashboard.html" class="nav-link active">Dashboard</a>
         <a href="upload.html" class="nav-link">Resume Upload</a>
         <a href="jobs.html" class="nav-link">Job Postings</a>
-        <a href="matching.html" class="nav-link">Matching & Skill Analysis</a>
+        <a href="matching.html" class="nav-link">Matching &amp; Skill Analysis</a>
+        <a href="interview.html" class="nav-link">Interview Assistant</a>
         <a href="analytics.html" class="nav-link">Analytics</a>
       </nav>
-      <div class="sidebar-footer">Light mode</div>
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()">
+          🌙 Dark mode
+       </button>
+      </div>
     </div>
 
     <main class="main-content">
@@ -28,6 +36,7 @@
           <h1 class="page-title">Dashboard Overview</h1>
           <p class="page-subtitle">Summary metrics across your current talent pool</p>
         </div>
+        <a href="interview.html" class="btn-primary" style="text-decoration:none; padding:8px 16px; font-size:12px;">⚡ Open Interview Copilot</a>
       </div>
 
       <div class="grid-2" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
@@ -67,7 +76,7 @@
       </div>
     </main>
   </div>
-
+  <script src="js/theme.js"></script>
   <script src="js/api.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

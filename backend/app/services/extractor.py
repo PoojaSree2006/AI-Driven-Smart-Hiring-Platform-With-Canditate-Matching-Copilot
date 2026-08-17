@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 services/extractor.py
 =======================
@@ -25,7 +26,6 @@ the functions below are structured so that swap is a small, local change.
 
 import re
 from typing import Optional
-
 from app.utils.exceptions import ExtractionError
 
 
