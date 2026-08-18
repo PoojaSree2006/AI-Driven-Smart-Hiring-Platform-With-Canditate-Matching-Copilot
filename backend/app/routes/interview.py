@@ -4,11 +4,13 @@ from __future__ import annotations
 backend/app/routes/interview.py
 ================================
 Router for AI Interview Question Generation, Interactive Simulation, and ATS Workflows.
-Supports Gemini AI integration with automatic local fallback when no key is set.
+Fully personalized using candidate resume profiles (skills, projects, experience).
+Supports Gemini AI integration (gemini-flash-latest) with automatic heuristic fallback.
 """
 
 import os
 import json
+import re
 import logging
 from typing import List, Dict, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException
@@ -52,25 +54,37 @@ class StatusUpdate(BaseModel):
     status: str
 
 
+def _extract_json(text: str) -> Optional[Any]:
+    """Robustly extracts JSON from raw LLM output even if wrapped in markdown code fences."""
+    try:
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+        clean_text = match.group(1).strip() if match else text.strip()
+        return json.loads(clean_text)
+    except Exception as err:
+        logger.warning("JSON parsing failed: %s | Raw output: %s", err, text)
+        return None
+
+
 def call_gemini_or_fallback(prompt: str) -> Optional[str]:
-    """Invokes Gemini if a valid API key exists; otherwise signals to fallback."""
+    """Invokes Gemini if a valid API key exists; otherwise signals fallback."""
     settings = get_settings()
-    api_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
+    api_key = (getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")).strip()
 
     if not api_key or api_key == "YOUR_GEMINI_API_KEY_HERE":
+        logger.info("No active GEMINI_API_KEY configured. Using fallback engine.")
         return None
 
     try:
         if USE_NEW_SDK is True:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model="gemini-flash-latest",
                 contents=prompt,
             )
             return response.text.strip() if response and response.text else None
         elif USE_NEW_SDK is False:
             genai_legacy.configure(api_key=api_key)
-            model = genai_legacy.GenerativeModel('gemini-1.5-flash')
+            model = genai_legacy.GenerativeModel("gemini-flash-latest")
             response = model.generate_content(prompt)
             return response.text.strip() if response and response.text else None
     except Exception as e:
@@ -80,93 +94,106 @@ def call_gemini_or_fallback(prompt: str) -> Optional[str]:
     return None
 
 
+def _format_candidate_resume_profile(cand: Optional[Candidate]) -> str:
+    """Builds a comprehensive resume context string from Candidate database columns."""
+    if not cand:
+        return "No specific candidate resume attached (General Profile)."
+
+    skills = cand.skills if isinstance(cand.skills, list) else []
+    projects = cand.projects if isinstance(cand.projects, list) else []
+    experience = cand.experience if isinstance(cand.experience, list) else []
+    certifications = cand.certifications if isinstance(cand.certifications, list) else []
+    education = cand.education if isinstance(cand.education, list) else []
+
+    profile_parts = [
+        f"Candidate Name: {cand.name or 'Candidate'}",
+        f"Experience Level: {cand.experience_years or 0} years",
+        f"Extracted Skills: {', '.join([str(s) for s in skills]) if skills else 'Not specified'}",
+        f"Key Projects: {json.dumps(projects) if projects else 'Not specified'}",
+        f"Work Experience History: {json.dumps(experience) if experience else 'Not specified'}",
+        f"Education: {json.dumps(education) if education else 'Not specified'}",
+        f"Certifications: {json.dumps(certifications) if certifications else 'Not specified'}",
+    ]
+
+    if cand.raw_text:
+        snippet = cand.raw_text[:1200].replace("\n", " ")
+        profile_parts.append(f"Resume Text Excerpt: {snippet}")
+
+    return "\n".join(profile_parts)
+
+
 @router.post("/interview/generate-questions")
 def generate_interview_questions(req: QuestionRequest, db: Session = Depends(get_db)):
     job = db.query(JobPosting).filter(JobPosting.id == req.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job posting not found")
 
-    candidate_info = ""
-    candidate_skills = []
+    cand = None
     if req.candidate_id:
         cand = db.query(Candidate).filter(Candidate.id == req.candidate_id).first()
-        if cand:
-            candidate_skills = cand.skills or []
-            candidate_info = f"Candidate Name: {cand.name}\nExtracted Skills: {candidate_skills}"
 
+    resume_profile = _format_candidate_resume_profile(cand)
     req_skills = [s.get("name") if isinstance(s, dict) else str(s) for s in (job.required_skills or [])]
-    primary_skill = req_skills[0] if req_skills else "Software Engineering"
-    secondary_skill = req_skills[1] if len(req_skills) > 1 else "System Architecture"
 
-    # Attempt Gemini Generation
+    # Personalized Gemini Prompt using candidate resume details
     prompt = f"""
-You are an expert AI technical interviewer for the role '{job.title}'.
-Required Skills: {', '.join(req_skills)}.
-{candidate_info}
-Generate exactly 3 structured interview questions for category '{req.question_type}'.
+You are a senior technical interviewer hiring for the position: "{job.title}".
+Job Description/Requirements: {job.description or 'Standard requirements'}
+Required Job Skills: {', '.join(req_skills)}.
+
+--- CANDIDATE RESUME DOSSIER ---
+{resume_profile}
+--------------------------------
+
+Generate exactly 3 deep, structured interview questions for category '{req.question_type}'.
+CRITICAL REQUIREMENT: Personalize the questions directly to the candidate's listed projects, past work experience, and claimed skills in their resume, evaluating how well they fit the "{job.title}" requirements.
 
 Return strictly a valid JSON array matching this exact format:
 [
-  {{"id": 1, "question": "Question text here", "type": "Technical - Scenario-based", "estimated_time": "3-5 min response"}},
-  {{"id": 2, "question": "Question text here", "type": "Technical - Deep Dive", "estimated_time": "4-6 min response"}},
-  {{"id": 3, "question": "Question text here", "type": "Behavioral - Communication", "estimated_time": "2-4 min response"}}
+  {{"id": 1, "question": "Question referencing specific resume project/skill...", "type": "{req.question_type} • Project Deep Dive", "estimated_time": "3-5 min response"}},
+  {{"id": 2, "question": "Question challenging their technical architecture choices...", "type": "{req.question_type} • Technical Scenario", "estimated_time": "4-6 min response"}},
+  {{"id": 3, "question": "Question assessing teamwork, trade-offs, or leadership in past roles...", "type": "Behavioral • Experience", "estimated_time": "2-4 min response"}}
 ]
 """
-    
+
     ai_raw = call_gemini_or_fallback(prompt)
     if ai_raw:
-        try:
-            cleaned = ai_raw.replace("```json", "").replace("```", "").strip()
-            questions = json.loads(cleaned)
-            return {"success": True, "job_title": job.title, "questions": questions, "source": "Gemini AI"}
-        except Exception:
-            pass
+        parsed_questions = _extract_json(ai_raw)
+        if parsed_questions and isinstance(parsed_questions, list) and len(parsed_questions) > 0:
+            return {
+                "success": True,
+                "job_title": job.title,
+                "questions": parsed_questions,
+                "source": "Gemini AI (Resume Grounded)",
+            }
 
-    # Intelligent Heuristic Fallback
-    if "Technical" in req.question_type or req.question_type == "Technical Skills":
-        questions = [
-            {
-                "id": 1,
-                "question": f"Describe a project where you applied {primary_skill} to optimize system performance. What techniques did you use and what was the outcome?",
-                "type": f"Technical • Experience-based",
-                "estimated_time": "3-5 min response",
-            },
-            {
-                "id": 2,
-                "question": f"How would you approach deploying a service for the {job.title} position in a production environment with {secondary_skill}? What considerations would you take into account?",
-                "type": "Technical • Scenario-based",
-                "estimated_time": "4-6 min response",
-            },
-            {
-                "id": 3,
-                "question": "Tell me about a time when you had to explain complex technical concepts to non-technical stakeholders. How did you ensure they understood?",
-                "type": "Behavioral • Communication",
-                "estimated_time": "2-4 min response",
-            },
-        ]
-    else:
-        questions = [
-            {
-                "id": 1,
-                "question": f"Describe a challenging bug or deployment failure you encountered while using {primary_skill}. How did you resolve it under pressure?",
-                "type": "Behavioral • Problem Solving",
-                "estimated_time": "4-5 min response",
-            },
-            {
-                "id": 2,
-                "question": "How do you evaluate engineering trade-offs between rapid feature delivery and long-term codebase maintainability?",
-                "type": "Behavioral • Decision Making",
-                "estimated_time": "3-5 min response",
-            },
-            {
-                "id": 3,
-                "question": "Tell me about a time you received critical feedback on your code or design during a review. How did you handle it?",
-                "type": "Behavioral • Collaboration",
-                "estimated_time": "2-3 min response",
-            },
-        ]
+    # Context-aware fallback
+    cand_name = cand.name if cand else "Candidate"
+    skills = cand.skills if (cand and cand.skills) else req_skills
+    primary_skill = skills[0] if (isinstance(skills, list) and skills) else "Software Engineering"
 
-    return {"success": True, "job_title": job.title, "questions": questions, "source": "Copilot Engine"}
+    questions = [
+        {
+            "id": 1,
+            "question": f"In your resume, you highlighted experience with {primary_skill}. Could you walk me through your architecture and key technical challenges in that project?",
+            "type": f"{req.question_type} • Resume Deep Dive",
+            "estimated_time": "3-5 min response",
+        },
+        {
+            "id": 2,
+            "question": f"How does your past background prepare you for deploying services in a high-scale {job.title} environment?",
+            "type": f"{req.question_type} • Scenario-based",
+            "estimated_time": "4-6 min response",
+        },
+        {
+            "id": 3,
+            "question": "Can you describe a challenging engineering trade-off you had to negotiate with team members on a past project from your resume?",
+            "type": "Behavioral • Collaboration",
+            "estimated_time": "2-4 min response",
+        },
+    ]
+
+    return {"success": True, "job_title": job.title, "questions": questions, "source": "Copilot Heuristic"}
 
 
 @router.post("/interview/simulate")
@@ -175,29 +202,35 @@ def simulate_interview_turn(msg: SimulationMessage, db: Session = Depends(get_db
     if not cand:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    user_text = msg.user_response.strip().lower()
     cand_name = cand.name or "Candidate"
+    resume_profile = _format_candidate_resume_profile(cand)
 
-    # Attempt Gemini response
     history_str = "\n".join([f"Interviewer: {t.get('ai')}\nCandidate: {t.get('user')}" for t in msg.history])
-    prompt = f"""
-You are an AI Interviewer conducting a live interview simulation with {cand_name} (Skills: {cand.skills}).
-Conversation History:
-{history_str}
-
-Candidate Response: "{msg.user_response}"
-
-Provide a concise, encouraging conversational reply followed by a relevant technical follow-up question (2-3 sentences max).
-"""
     
+    prompt = f"""
+You are an expert technical interviewer conducting an interactive simulation with candidate "{cand_name}".
+
+--- CANDIDATE RESUME DOSSIER ---
+{resume_profile}
+--------------------------------
+
+Interview History so far:
+{history_str if history_str else 'Start of interview.'}
+
+Candidate's Latest Response:
+"{msg.user_response}"
+
+Instructions:
+1. Ground your evaluation in the candidate's actual resume (verify if their answers align with their claimed projects, tools, and background).
+2. Formulate a natural, professional reply (2-3 sentences max).
+3. Ask a direct follow-up question digging deeper into their technical implementation, testing, performance metrics, or specific project choices from their resume.
+"""
+
     ai_reply = call_gemini_or_fallback(prompt)
     if not ai_reply:
-        if "hello" in user_text or "start" in user_text or not msg.history:
-            ai_reply = f"Hello {cand_name}, I'm your AI interviewer today. Let's start with a technical question about your core experience and projects."
-        elif len(user_text) < 20:
-            ai_reply = f"Thank you, {cand_name}. Could you elaborate further with specific technical implementation details or architectures you used?"
-        else:
-            ai_reply = "Great! Can you describe your approach to monitoring system performance in production and how you handle failures or drift?"
+        skills = cand.skills if cand.skills else ["software development"]
+        primary = skills[0] if isinstance(skills, list) and skills else "development"
+        ai_reply = f"Thank you for that context, {cand_name}. Looking at your experience with {primary}, how did you measure performance benchmarks and ensure maintainability in that project?"
 
     return {"success": True, "candidate_name": cand_name, "ai_response": ai_reply}
 

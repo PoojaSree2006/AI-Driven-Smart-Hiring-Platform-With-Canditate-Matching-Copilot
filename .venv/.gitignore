@@ -3,7 +3,9 @@
 *.env
 .env.*
 !.env.example
-
+.env
+backend/.env
+*.env
 # --- Python & Bytecode Cache ---
 __pycache__/
 *.py[cod]

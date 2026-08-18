@@ -10,7 +10,6 @@ let chatHistory = [];
 let candidatesList = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Enforce locked initial state
   resetInterviewControls();
   loadOptions();
 
@@ -29,25 +28,39 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Track candidate selection change (Updates label only - NEVER starts session)
+  // Keep both candidate selectors in sync
+  document.getElementById("gen-candidate-select")?.addEventListener("change", (e) => {
+    const selectedId = e.target.value;
+    const simSelect = document.getElementById("candidate-select");
+    if (simSelect && !isInterviewActive) {
+      simSelect.value = selectedId;
+    }
+    updateActiveCandidate(selectedId);
+  });
+
   document.getElementById("candidate-select")?.addEventListener("change", (e) => {
     const selectedId = e.target.value;
-    if (selectedId) {
-      activeCandidateId = selectedId;
-      const cand = candidatesList.find(c => String(c.id) === String(selectedId));
-      activeCandidateName = cand?.name || "Candidate";
-      
-      const header = document.getElementById("sim-candidate-header");
-      if (header && !isInterviewActive) {
-        header.textContent = `Candidate: ${activeCandidateName} (Ready to start)`;
-      }
+    const genSelect = document.getElementById("gen-candidate-select");
+    if (genSelect) {
+      genSelect.value = selectedId;
     }
+    updateActiveCandidate(selectedId);
   });
 });
 
-// ============================================================
-// State Reset Helper
-// ============================================================
+function updateActiveCandidate(selectedId) {
+  if (selectedId) {
+    activeCandidateId = selectedId;
+    const cand = candidatesList.find(c => String(c.id) === String(selectedId));
+    activeCandidateName = cand?.name || "Candidate";
+    
+    const header = document.getElementById("sim-candidate-header");
+    if (header && !isInterviewActive) {
+      header.textContent = `Candidate: ${activeCandidateName} (Ready to start)`;
+    }
+  }
+}
+
 function resetInterviewControls() {
   isInterviewActive = false;
   
@@ -57,8 +70,7 @@ function resetInterviewControls() {
   const endBtn = document.getElementById("end-interview-btn");
   if (endBtn) {
     endBtn.disabled = true;
-    endBtn.style.color = "var(--text-muted)";
-    endBtn.style.cursor = "not-allowed";
+    endBtn.className = "btn-danger-outline";
   }
 
   const chatInput = document.getElementById("chat-input");
@@ -82,9 +94,6 @@ function resetInterviewControls() {
   if (candSelect) candSelect.disabled = false;
 }
 
-// ============================================================
-// Initial Options Load
-// ============================================================
 async function loadOptions() {
   try {
     // 1. Load Job Postings
@@ -96,18 +105,20 @@ async function loadOptions() {
         : jobs.map(j => `<option value="${j.id}">${escapeHtml(j.title || 'Untitled Job')}</option>`).join("");
     }
 
-    // 2. Load Candidates
+    // 2. Load Candidates & Populate Both Dropdowns
     const candidates = await api.getCandidates();
     candidatesList = candidates || [];
-    const candSelect = document.getElementById("candidate-select");
-    if (candSelect) {
-      if (!candidates || candidates.length === 0) {
-        candSelect.innerHTML = `<option value="">No candidates found</option>`;
-      } else {
-        candSelect.innerHTML = `<option value="">-- Select candidate --</option>` + 
-          candidates.map(c => `<option value="${c.id}">${escapeHtml(c.name || 'Candidate')}</option>`).join("");
-      }
-    }
+    
+    const candidateOptions = (!candidates || candidates.length === 0)
+      ? `<option value="">No candidates found</option>`
+      : `<option value="">-- Select candidate profile --</option>` + 
+        candidates.map(c => `<option value="${c.id}">${escapeHtml(c.name || 'Candidate')}</option>`).join("");
+
+    const genCandSelect = document.getElementById("gen-candidate-select");
+    if (genCandSelect) genCandSelect.innerHTML = candidateOptions;
+
+    const simCandSelect = document.getElementById("candidate-select");
+    if (simCandSelect) simCandSelect.innerHTML = candidateOptions;
 
     // 3. Render ATS Cards
     renderAtsCards(candidatesList);
@@ -117,11 +128,13 @@ async function loadOptions() {
 }
 
 // ============================================================
-// Question Generator
+// Resume-Grounded Question Generator
 // ============================================================
 async function generateQuestions() {
   const jobId = document.getElementById("job-select")?.value;
   const questionType = document.getElementById("type-select")?.value || "Technical Skills";
+  const genCandidateId = document.getElementById("gen-candidate-select")?.value;
+  const candidateId = genCandidateId || activeCandidateId || null;
   const container = document.getElementById("questions-container");
 
   if (!jobId || !container) {
@@ -129,11 +142,17 @@ async function generateQuestions() {
     return;
   }
 
-  container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); padding:12px;">⚡ Generating questions with AI Copilot...</p>`;
+  const matchedCand = candidatesList.find(c => String(c.id) === String(candidateId));
+  const candName = matchedCand?.name || activeCandidateName;
+  const candidateLabel = candidateId && candName !== "Candidate" 
+    ? ` for ${escapeHtml(candName)} (Resume Context)` 
+    : "";
+
+  container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); padding:12px;">⚡ Generating questions${candidateLabel} with AI Copilot...</p>`;
 
   try {
     const fetchFn = api.generateInterviewQuestions || api.generateQuestions;
-    const data = await fetchFn(jobId, questionType, activeCandidateId);
+    const data = await fetchFn(jobId, questionType, candidateId);
     const questions = data.questions || [];
 
     if (!questions.length) {
@@ -162,7 +181,7 @@ async function generateQuestions() {
 }
 
 // ============================================================
-// Explicit Start Interview
+// Resume-Grounded Start Interview
 // ============================================================
 function startInterview() {
   const candSelect = document.getElementById("candidate-select");
@@ -180,20 +199,16 @@ function startInterview() {
   isInterviewActive = true;
   chatHistory = [];
 
-  // 1. Lock dropdown and Start button
   if (candSelect) candSelect.disabled = true;
   const startBtn = document.getElementById("start-interview-btn");
   if (startBtn) startBtn.disabled = true;
 
-  // 2. Enable End button
   const endBtn = document.getElementById("end-interview-btn");
   if (endBtn) {
     endBtn.disabled = false;
-    endBtn.style.color = "#ef4444";
-    endBtn.style.cursor = "pointer";
+    endBtn.className = "btn-danger-outline active";
   }
 
-  // 3. Update Session Badge & Header
   const sessionBadge = document.getElementById("session-badge");
   if (sessionBadge) {
     sessionBadge.textContent = "Active Session";
@@ -206,47 +221,45 @@ function startInterview() {
     header.textContent = `Candidate: ${activeCandidateName}`;
   }
 
-  // 4. Unlock input and send button
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("send-msg-btn");
   if (chatInput) {
     chatInput.disabled = false;
-    chatInput.placeholder = "Type candidate response or answer notes...";
+    chatInput.placeholder = "Type your response...";
     chatInput.focus();
   }
   if (sendBtn) sendBtn.disabled = false;
 
-  // 5. Clear initial placeholder & post first greeting
   const chatBox = document.getElementById("chat-box");
   if (chatBox) chatBox.innerHTML = "";
 
-  appendMsg("ai", `Hello ${activeCandidateName}, I'm your AI interviewer today. Let's begin the interview simulation. Could you briefly introduce your technical background?`);
+  const skillsPreview = (cand && Array.isArray(cand.skills) && cand.skills.length > 0)
+    ? ` I see your background in ${cand.skills.slice(0, 3).join(", ")}.`
+    : "";
+
+  appendMsg("ai", `Hello ${activeCandidateName}, I'm your AI technical interviewer today.${skillsPreview} Let's begin: could you introduce yourself and walk me through the most technically complex project listed on your resume?`);
 }
 
 // ============================================================
-// Explicit End Interview
+// End Interview
 // ============================================================
 function endInterview() {
   if (!isInterviewActive) return;
 
   isInterviewActive = false;
 
-  // 1. Re-enable Start button & Dropdown
   const startBtn = document.getElementById("start-interview-btn");
   if (startBtn) startBtn.disabled = false;
 
   const candSelect = document.getElementById("candidate-select");
   if (candSelect) candSelect.disabled = false;
 
-  // 2. Disable End button
   const endBtn = document.getElementById("end-interview-btn");
   if (endBtn) {
     endBtn.disabled = true;
-    endBtn.style.color = "var(--text-muted)";
-    endBtn.style.cursor = "not-allowed";
+    endBtn.className = "btn-danger-outline";
   }
 
-  // 3. Lock input controls
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("send-msg-btn");
   if (chatInput) {
@@ -256,7 +269,6 @@ function endInterview() {
   }
   if (sendBtn) sendBtn.disabled = true;
 
-  // 4. Update Session Badge
   const sessionBadge = document.getElementById("session-badge");
   if (sessionBadge) {
     sessionBadge.textContent = "Session Concluded";
@@ -264,7 +276,6 @@ function endInterview() {
     sessionBadge.style.color = "var(--text-muted)";
   }
 
-  // 5. Post termination message
   appendMsg("ai", `🏁 The interview session with ${activeCandidateName} has ended and conversation logs are synced to ATS.`);
 }
 
