@@ -1,0 +1,37 @@
+{
+  "name": "Professional Summary",
+  "email": "candidate@example.com",
+  "phone": "+91 9876543210",
+  "location": null,
+  "linkedin": null,
+  "github": null,
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "Java",
+    "JavaScript",
+    "React",
+    "CSS",
+    "FastAPI",
+    "SQL",
+    "MySQL",
+    "MongoDB",
+    "Git",
+    "GitHub"
+  ],
+  "education": [
+    {
+      "degree": "B.Tech in Computer Science and Engineering \u2013 ABC Engineering College \u2013",
+      "institution": null,
+      "year": "2026"
+    }
+  ],
+  "experience": [],
+  "projects": [],
+  "certifications": [
+    "Python Programming Certification \u2013 2025"
+  ],
+  "missing_fields": [],
+  "parsing_status": "complete",
+  "display_name": "Professional Summary"
+}

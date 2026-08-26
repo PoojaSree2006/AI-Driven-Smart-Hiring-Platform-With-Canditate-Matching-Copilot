@@ -208,6 +208,42 @@ const api = {
       return [];
     }
   },
+    /**
+   * Creates a new job posting.
+   */
+  async createJob(jobData) {
+    if (!jobData || !jobData.title) {
+      throw new Error("Job title is required");
+    }
+
+    try {
+      return await apiFetch("/jobs", {
+        method: "POST",
+        body: JSON.stringify(jobData)
+      });
+    } catch (err) {
+      console.error("api.createJob failed:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Deletes a job posting.
+   */
+  async deleteJob(jobId) {
+    if (!jobId) {
+      throw new Error("jobId is required for deleteJob");
+    }
+
+    try {
+      return await apiFetch(`/job/${jobId}`, {
+        method: "DELETE"
+      });
+    } catch (err) {
+      console.error(`api.deleteJob failed for Job ID ${jobId}:`, err);
+      throw err;
+    }
+  },
 
   /**
    * Retrieves a specific job posting by ID.
@@ -217,12 +253,13 @@ const api = {
   async getJobById(jobId) {
     if (!jobId) throw new Error("jobId is required for getJobById");
     try {
-      return await apiFetch(`/jobs/${jobId}`);
+      return await apiFetch(`/job/${jobId}`);
     } catch (err) {
       console.error(`api.getJobById failed for ID ${jobId}:`, err);
       throw err;
     }
   },
+  
 
   /**
    * Computes match fit scores between all candidates and a designated Job ID.
@@ -273,22 +310,31 @@ const api = {
    * @param {Array} [history=[]] 
    * @returns {Promise<object>} Evaluation and reply turn
    */
-  async simulateInterviewTurn(candidateId, userResponse, history = []) {
-    try {
-      return await apiFetch("/interview/simulate", {
-        method: "POST",
-        body: JSON.stringify({
-          candidate_id: candidateId,
-          user_response: userResponse,
-          history: history
-        })
-      });
-    } catch (err) {
-      console.error("api.simulateInterviewTurn failed:", err);
-      throw err;
-    }
-  },
-
+   async simulateInterviewTurn(
+  candidateId,
+  userResponse,
+  history = [],
+  currentQuestion = "",
+  questionNumber = 1,
+  totalQuestions = 5
+) {
+  try {
+    return await apiFetch("/interview/simulate", {
+      method: "POST",
+      body: JSON.stringify({
+        candidate_id: candidateId,
+        user_response: userResponse,
+        current_question: currentQuestion,
+        question_number: questionNumber,
+        total_questions: totalQuestions,
+        history: history
+      })
+    });
+  } catch (err) {
+    console.error("api.simulateInterviewTurn failed:", err);
+    throw err;
+  }
+},
   // ==========================================================
 // 6. ANALYTICS ENDPOINT
 // ==========================================================

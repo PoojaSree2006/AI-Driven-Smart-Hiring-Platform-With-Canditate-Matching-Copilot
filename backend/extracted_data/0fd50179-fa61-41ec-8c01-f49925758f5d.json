@@ -1,0 +1,67 @@
+{
+  "name": "MANTHENA UDAY KIRAN",
+  "email": "youremailaddress@gmail.com",
+  "phone": "9912345678",
+  "location": "Data Science, Fundamentals",
+  "linkedin": null,
+  "github": null,
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "JavaScript",
+    "HTML",
+    "CSS",
+    "MySQL",
+    "Git",
+    "GitHub",
+    "Communication"
+  ],
+  "education": [
+    {
+      "degree": "Eluru College of Engineering",
+      "institution": "BTech in Computer Science and Data Science.",
+      "year": null
+    }
+  ],
+  "experience": [],
+  "projects": [
+    {
+      "name": "Tools used: Python, OpenCV, TensorFlow, Mini-XCEPTION Model",
+      "description": "Contacts Store App Built a full-stack web application From Scratch that allows users to securely register and log in to manage their personal contact lists. Implemented complete CRUD operations for contacts along with a dark/light mode toggle for enhanced user experience.",
+      "technologies": [
+        "Python",
+        "TensorFlow"
+      ]
+    },
+    {
+      "name": "Tools used: MongoDB, Express.js, React.js, Node.js (MERN Stack)",
+      "description": "",
+      "technologies": [
+        "React",
+        "Node.js",
+        "Express",
+        "MongoDB"
+      ]
+    },
+    {
+      "name": "EXTRA-CURRICULAR ACTIVITIES",
+      "description": "",
+      "technologies": []
+    },
+    {
+      "name": "Tech Content Creator \u2014 Instagram (@u day codes)",
+      "description": "Created 150+ educational coding reels in Telugu, building a community of 30K+ followers. Explained core concepts of HTML, Python, and AI using simple, beginner-friendly examples. Improved communication and problem-solving skills by breaking down complex technical topics.",
+      "technologies": [
+        "Python",
+        "HTML",
+        "Communication"
+      ]
+    },
+    {
+      "name": "My Blog \u2014 udaycodes.in",
+      "description": "Built and actively maintain a personal tech blog focused on coding tutorials and AI topics. Publish structured explanations and practical examples to support learners beyond short-form content. Gained hands-on experience with content structuring, technical writing, and web fundamentals.",
+      "technologies": []
+    }
+  ],
+  "certifications": []
+}
