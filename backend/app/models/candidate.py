@@ -60,7 +60,9 @@ class Candidate(Base):
 
     # --- Milestone 3 Extensions: Status & Interview Logs ---
     status = Column(String(50), default="processed")  # e.g. "processed", "scheduled", "shortlisted", "rejected"
+    voice_screening_status = Column(String(30), default="NOT COMPLETED")
     interview_notes = Column(JSON, nullable=True, default=list)
+    voice_transcript = Column(Text, nullable=True)
 
     # --- Timestamps ---
     created_at = Column(

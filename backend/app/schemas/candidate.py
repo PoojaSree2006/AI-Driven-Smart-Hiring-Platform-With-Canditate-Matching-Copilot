@@ -74,6 +74,7 @@ class CandidateCreate(CandidateBase):
     extracted_json_path: Optional[str] = None
     raw_text: Optional[str] = None
     status: str = "processed"
+    voice_screening_status: str = "NOT COMPLETED"
 
 
 class CandidateResponse(CandidateBase):
@@ -81,6 +82,7 @@ class CandidateResponse(CandidateBase):
 
     id: str
     status: Optional[str] = "processed"
+    voice_screening_status: Optional[str] = "NOT COMPLETED"
     resume_filename: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -97,6 +99,7 @@ class CandidateListItem(BaseModel):
     experience_years: Optional[str] = None
     skills: list[str] = Field(default_factory=list)
     status: Optional[str] = "processed"
+    voice_screening_status: Optional[str] = "NOT COMPLETED"
     created_at: datetime
 
 
