@@ -1,7 +1,7 @@
 /* ============================================================
-   js/analytics.js
+   frontend-html/js/analytics.js
    Synchronized Visual Intelligence Engine
-   Fully Aligned with Voice Screening, Tech Simulation & ATS Data
+   Fully Aligned with Voice Screening, Tech Simulation & Database Jobs
    ============================================================ */
 
 const chartInstances = {};
@@ -34,6 +34,16 @@ async function loadAnalyticsData() {
       console.warn("Could not fetch candidate records:", candErr);
     }
 
+    let jobs = [];
+    try {
+      const jobResponse = await api.getJobs();
+      if (Array.isArray(jobResponse)) jobs = jobResponse;
+      else if (Array.isArray(jobResponse?.jobs)) jobs = jobResponse.jobs;
+      else if (Array.isArray(jobResponse?.data)) jobs = jobResponse.data;
+    } catch (jobErr) {
+      console.warn("Could not fetch job postings:", jobErr);
+    }
+
     let rawAnalytics = {};
     try {
       if (typeof api.getAnalytics === "function") {
@@ -52,9 +62,9 @@ async function loadAnalyticsData() {
     // Render Analytics Views
     updateAnalyticsKPIs(synchronizedCandidates);
     renderPipelineDonutChart(synchronizedCandidates);
-    renderSkillGapsChart(synchronizedCandidates);
+    renderSkillGapsChart(synchronizedCandidates, jobs);
     renderDualScoreChart(synchronizedCandidates);
-    renderTopSkillsDensityChart(synchronizedCandidates, rawAnalytics.top_skills || []);
+    renderTopSkillsDensityChart(synchronizedCandidates, rawAnalytics?.top_skills || []);
     renderCandidateLeaderboard(synchronizedCandidates);
 
   } catch (err) {
@@ -186,9 +196,9 @@ function renderPipelineDonutChart(candidates) {
 }
 
 // ============================================================
-// 3. Candidate Skill Gap Deficit Analysis (Matched with ATS Tags)
+// 3. Candidate Skill Gap Deficit Analysis (Matched with Live Jobs)
 // ============================================================
-function renderSkillGapsChart(candidates) {
+function renderSkillGapsChart(candidates, jobs = []) {
   const ctx = document.getElementById("skill-gaps-chart")?.getContext("2d");
   if (!ctx) return;
 
@@ -196,8 +206,25 @@ function renderSkillGapsChart(candidates) {
     chartInstances["skillGaps"].destroy();
   }
 
-  // Exact target requirements used in ATS table
-  const coreCompetencies = ["python", "fastapi", "mysql", "docker", "rest api", "git"];
+  let targetCompetencies = new Set();
+  jobs.forEach(job => {
+    let req = job.required_skills || job.skills || [];
+    if (typeof req === "string") {
+      try { req = JSON.parse(req); } catch (e) { req = req.split(","); }
+    }
+    if (Array.isArray(req)) {
+      req.forEach(s => {
+        const clean = String(s).trim().toLowerCase();
+        if (clean) targetCompetencies.add(clean);
+      });
+    }
+  });
+
+  if (targetCompetencies.size === 0) {
+    ["python", "fastapi", "mysql", "docker", "rest api", "git"].forEach(s => targetCompetencies.add(s));
+  }
+
+  const coreCompetencies = Array.from(targetCompetencies).slice(0, 8);
   const gapCounts = {};
   coreCompetencies.forEach(skill => gapCounts[skill.toUpperCase()] = 0);
 
@@ -225,7 +252,9 @@ function renderSkillGapsChart(candidates) {
           "#f59e0b",
           "#eab308",
           "#84cc16",
-          "#06b6d4"
+          "#06b6d4",
+          "#8b5cf6",
+          "#ec4899"
         ],
         borderRadius: 6,
         maxBarThickness: 32
@@ -253,7 +282,7 @@ function renderSkillGapsChart(candidates) {
 }
 
 // ============================================================
-// 4. Voice vs. Technical Competence (Strict Zero Sync)
+// 4. Voice vs. Technical Competence
 // ============================================================
 function renderDualScoreChart(candidates) {
   const ctx = document.getElementById("dual-score-chart")?.getContext("2d");
@@ -398,7 +427,7 @@ function renderTopSkillsDensityChart(candidates, apiSkills) {
 }
 
 // ============================================================
-// 6. Mentor's Leaderboard (Real-Time Ranked Hierarchy)
+// 6. Mentor's Leaderboard (5-Column Clean Layout)
 // ============================================================
 function renderCandidateLeaderboard(candidates) {
   const tbody = document.getElementById("leaderboard-tbody");
@@ -407,7 +436,7 @@ function renderCandidateLeaderboard(candidates) {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px;">
+        <td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px;">
           No candidates in pool to rank.
         </td>
       </tr>
@@ -421,7 +450,6 @@ function renderCandidateLeaderboard(candidates) {
   tbody.innerHTML = ranked.map((c, index) => {
     const name = c.name || c.full_name || "Candidate";
     const email = c.email || "No email";
-    const role = c.location || "Full Stack Developer";
     const status = normalizeStatus(c.status) || "applied";
 
     let rankBadge = `<span style="font-weight: 800; font-size: 12px; color: var(--text-muted);">#${index + 1}</span>`;
@@ -441,7 +469,6 @@ function renderCandidateLeaderboard(candidates) {
           <strong style="color: var(--text-color); display: block;">${escapeHtml(name)}</strong>
           <span style="color: var(--text-muted); font-size: 10px;">${escapeHtml(email)}</span>
         </td>
-        <td style="padding: 12px 8px; font-size: 12px; color: var(--text-muted);">${escapeHtml(role)}</td>
         <td style="padding: 12px 8px;">
           <strong style="color: ${scoreColor}; font-size: 13px;">${scoreText}</strong>
           <span style="font-size: 10px; color: var(--text-muted); display: block;">

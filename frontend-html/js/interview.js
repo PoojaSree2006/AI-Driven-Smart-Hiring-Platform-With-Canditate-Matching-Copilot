@@ -1,16 +1,19 @@
 /* ============================================================
    frontend-html/js/interview.js
    Unified Assessment Hub: Voice Screening + Tech Copilot + ATS
-   (Fixed Persistent State Sync via LocalStorage)
+   (Streamlined 6-Column Pipeline with Direct Score Attribution)
    ============================================================ */
 
 // Global State Management
 let activeCandidateId = null;
 let activeCandidateName = "Candidate";
+let activeJobId = null;
+let activeJobTitle = "";
 let candidatesList = [];
+let jobsList = [];
 
 // ============================================================
-// LocalStorage Persistent Evaluation Cache (Survives page switches)
+// LocalStorage Persistent Evaluation Cache
 // ============================================================
 function getPersistentCache() {
   try {
@@ -20,15 +23,48 @@ function getPersistentCache() {
   }
 }
 
-function saveToPersistentCache(candId, data) {
+function saveToPersistentCache(candId, jobId, jobTitle, data) {
   try {
     const cache = getPersistentCache();
-    const strId = String(candId);
-    cache[strId] = { ...(cache[strId] || {}), ...data };
+    const strCandId = String(candId);
+    
+    // Scoped compound cache for Candidate x Job Position
+    if (jobId) {
+      const compoundKey = `${strCandId}_${String(jobId)}`;
+      cache[compoundKey] = { 
+        ...(cache[compoundKey] || {}), 
+        ...data, 
+        jobId: jobId, 
+        jobTitle: jobTitle 
+      };
+    }
+    
+    // Direct candidate record cache
+    cache[strCandId] = { 
+      ...(cache[strCandId] || {}), 
+      ...data, 
+      lastInterviewedJobId: jobId, 
+      lastInterviewedJobTitle: jobTitle 
+    };
+    
     localStorage.setItem("rc_candidate_scores", JSON.stringify(cache));
   } catch (e) {
     console.warn("Could not save to persistent storage:", e);
   }
+}
+
+function getCandidateInterviewRecord(candId) {
+  const cache = getPersistentCache();
+  return cache[String(candId)] || null;
+}
+
+function getCandidateJobScoreRecord(candId, jobId) {
+  const cache = getPersistentCache();
+  if (candId && jobId) {
+    const compoundKey = `${String(candId)}_${String(jobId)}`;
+    if (cache[compoundKey]) return cache[compoundKey];
+  }
+  return cache[String(candId)] || {};
 }
 
 // Technical Simulation State
@@ -77,17 +113,33 @@ const VOICE_TOPICS = [
 // ============================================================
 // 2. Initialization & Lifecycle
 // ============================================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   setupSpeechRecognition();
-  loadCandidatesAndPreselect();
-  loadATSCandidates();
+  await Promise.all([loadCandidatesDropdown(), loadJobsDropdown()]);
+  await loadATSCandidates();
   rotateVoiceTopic(0);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramCandId = urlParams.get("candidate_id");
+  const paramJobId = urlParams.get("job_id");
+
+  if (paramCandId) {
+    const candSelect = document.getElementById("candidate-select");
+    if (candSelect) candSelect.value = paramCandId;
+  }
+  if (paramJobId) {
+    const jobSelect = document.getElementById("job-select");
+    if (jobSelect) jobSelect.value = paramJobId;
+  }
+  if (paramCandId || paramJobId) {
+    loadCandidateContext();
+  }
 });
 
 // ============================================================
-// 3. Candidate Directory & URL Parameter Bridge
+// 3. Dropdowns & Context Management
 // ============================================================
-async function loadCandidatesAndPreselect() {
+async function loadCandidatesDropdown() {
   const candSelect = document.getElementById("candidate-select");
   if (!candSelect) return;
 
@@ -106,70 +158,131 @@ async function loadCandidatesAndPreselect() {
       return;
     }
 
-    candSelect.innerHTML = `<option value="">-- Select Candidate to Evaluate --</option>` +
+    candSelect.innerHTML = `<option value="">-- Select Candidate --</option>` +
       list.map(c => {
         const cId = c.id ?? c.candidate_id;
-        return `<option value="${cId}">${escapeHtml(c.name || "Candidate")}</option>`;
+        return `<option value="${cId}" data-name="${escapeHtml(c.name || 'Candidate')}">${escapeHtml(c.name || "Candidate")}</option>`;
       }).join("");
 
-    // Check URL parameters for candidate forwarded from Dashboard
-    const urlParams = new URLSearchParams(window.location.search);
-    const preSelectedId = urlParams.get("candidate_id");
+  } catch (err) {
+    console.error("Failed to load candidates:", err);
+    candSelect.innerHTML = `<option value="">Error loading candidates</option>`;
+  }
+}
 
-    if (preSelectedId) {
-      candSelect.value = preSelectedId;
-      loadCandidateContext();
+async function loadJobsDropdown() {
+  const jobSelect = document.getElementById("job-select");
+  if (!jobSelect) return;
+
+  try {
+    const response = await api.getJobs();
+    let list = [];
+    if (Array.isArray(response)) list = response;
+    else if (Array.isArray(response?.jobs)) list = response.jobs;
+    else if (Array.isArray(response?.data)) list = response.data;
+
+    jobsList = list;
+
+    if (list.length === 0) {
+      jobSelect.innerHTML = `<option value="">No job positions found</option>`;
+      return;
     }
 
+    jobSelect.innerHTML = `<option value="">-- Select Job Position to Interview For --</option>` +
+      list.map(j => {
+        const jId = j.id ?? j.job_id;
+        const title = j.title || j.role || j.position || j.role_title || "Untitled Position";
+        const dept = j.department ? ` (${j.department})` : "";
+        return `<option value="${jId}" data-title="${escapeHtml(title)}">${escapeHtml(title)}${escapeHtml(dept)}</option>`;
+      }).join("");
+
   } catch (err) {
-    console.error("Failed to load candidates for assessment hub:", err);
-    candSelect.innerHTML = `<option value="">Error loading candidates</option>`;
+    console.error("Failed to load job postings:", err);
+    jobSelect.innerHTML = `<option value="">Error loading positions</option>`;
+  }
+}
+
+function onContextChanged() {
+  const candSelect = document.getElementById("candidate-select");
+  const jobSelect = document.getElementById("job-select");
+  const subtext = document.getElementById("pair-history-subtext");
+
+  const candId = candSelect ? candSelect.value : null;
+  const jobId = jobSelect ? jobSelect.value : null;
+
+  if (candId && jobId) {
+    const record = getCandidateJobScoreRecord(candId, jobId);
+    if (subtext) {
+      if (record && record.techScore !== undefined) {
+        subtext.style.display = "block";
+        subtext.textContent = `Previous recorded score for this position: ${record.techScore}/100`;
+      } else {
+        subtext.style.display = "block";
+        subtext.textContent = `Candidate has not been interviewed for this specific position yet.`;
+      }
+    }
+  } else if (subtext) {
+    subtext.style.display = "none";
   }
 }
 
 function loadCandidateContext() {
   const candSelect = document.getElementById("candidate-select");
-  const selectedId = candSelect ? candSelect.value : null;
+  const jobSelect = document.getElementById("job-select");
 
-  if (!selectedId) {
+  const selectedCandId = candSelect ? candSelect.value : null;
+  const selectedJobId = jobSelect ? jobSelect.value : null;
+
+  if (!selectedCandId) {
     alert("Please select a candidate from the dropdown.");
     return;
   }
 
-  activeCandidateId = selectedId;
-  const cand = candidatesList.find(c => String(c.id ?? c.candidate_id) === String(selectedId));
+  activeCandidateId = selectedCandId;
+  const cand = candidatesList.find(c => String(c.id ?? c.candidate_id) === String(selectedCandId));
   activeCandidateName = cand?.name || "Candidate";
+
+  if (selectedJobId) {
+    activeJobId = selectedJobId;
+    const job = jobsList.find(j => String(j.id ?? j.job_id) === String(selectedJobId));
+    activeJobTitle = job?.title || job?.role || "Selected Position";
+  } else {
+    activeJobId = null;
+    activeJobTitle = "";
+  }
 
   const header = document.getElementById("sim-candidate-header");
   if (header) {
-    header.textContent = `${activeCandidateName} (Ready for Voice & Technical Assessment)`;
+    header.textContent = activeJobTitle 
+      ? `${activeCandidateName} — Conducting Interview For: ${activeJobTitle}`
+      : `${activeCandidateName} — Please select a job position to interview for`;
   }
 
-  // Restore cached feedback in voice evaluation card if previously completed
-  const persistentCache = getPersistentCache();
-  const cached = persistentCache[String(selectedId)];
-  if (cached && cached.voiceScore !== undefined) {
-    const resultBox = document.getElementById("voice-potential-result");
-    const scorePill = document.getElementById("voice-score-pill");
-    const cadenceLine = document.getElementById("voice-cadence-line");
-    const naturalnessLine = document.getElementById("voice-naturalness-line");
-    const suggestionLine = document.getElementById("voice-suggestion-line");
-
-    if (resultBox && scorePill) {
-      resultBox.style.display = "block";
-      scorePill.textContent = `Score: ${cached.voiceScore}/100`;
-      scorePill.style.color = cached.voiceScore >= 70 ? "#10b981" : "#f59e0b";
-      scorePill.style.background = cached.voiceScore >= 70 ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)";
-      if (cadenceLine) cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> Evaluated (${cached.voiceScore >= 70 ? 'Natural Cadence' : 'Brief / Hesitant'})`;
-      if (naturalnessLine) naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> Completed assessment session`;
-      if (suggestionLine) suggestionLine.innerHTML = `🌟 <strong>Saved Evaluation:</strong> Results retrieved from persistent storage.`;
-    }
+  const roleText = document.getElementById("active-sim-role-text");
+  if (roleText) {
+    roleText.innerHTML = activeJobTitle 
+      ? `Interviewing For: <strong>${escapeHtml(activeJobTitle)}</strong>`
+      : `Interviewing For: <em>Select from dropdown above</em>`;
   }
 
-  // Highlight candidate row in bottom ATS table if visible
+  const cached = getCandidateJobScoreRecord(activeCandidateId, activeJobId);
+  const resultBox = document.getElementById("voice-potential-result");
+  const scorePill = document.getElementById("voice-score-pill");
+
+  if (cached && cached.voiceScore !== undefined && resultBox && scorePill) {
+    resultBox.style.display = "block";
+    scorePill.textContent = `Score: ${cached.voiceScore}/100`;
+    scorePill.style.color = cached.voiceScore >= 70 ? "#10b981" : "#f59e0b";
+    scorePill.style.background = cached.voiceScore >= 70 ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)";
+  } else if (resultBox) {
+    resultBox.style.display = "none";
+  }
+
+  onContextChanged();
+
   const rows = document.querySelectorAll("#ats-candidates-tbody tr");
   rows.forEach(r => r.style.background = "");
-  const targetRow = document.getElementById(`ats-row-${selectedId}`);
+  const targetRow = document.getElementById(`ats-row-${selectedCandId}`);
   if (targetRow) {
     targetRow.style.background = "rgba(59, 130, 246, 0.08)";
     targetRow.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -216,8 +329,6 @@ function setupSpeechRecognition() {
 
   speechRecognition.onresult = (event) => {
     let interim = "";
-    let final = "";
-
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const trans = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
@@ -357,7 +468,7 @@ function setVoiceStatus(msg) {
 }
 
 // ============================================================
-// 5. Speech Evaluation & "Potential" Engine (LocalStorage Fixed)
+// 5. Speech Evaluation & Potential Engine
 // ============================================================
 async function evaluateVoiceSpeech() {
   const textArea = document.getElementById("voice-transcript-area");
@@ -380,9 +491,6 @@ async function evaluateVoiceSpeech() {
   let calculatedVoiceScore = 0;
   let isVoiceComplete = false;
 
-  // -------------------------------------------------------------
-  // TEST CASE A: Empty or Silent Audio Input
-  // -------------------------------------------------------------
   if (wordCount === 0 || rawText === "") {
     calculatedVoiceScore = 0;
     isVoiceComplete = false;
@@ -394,12 +502,8 @@ async function evaluateVoiceSpeech() {
     }
     if (cadenceLine) cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> 0 WPM (No audio detected)`;
     if (naturalnessLine) naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> Incomplete session`;
-    if (suggestionLine) suggestionLine.innerHTML = `⚠️ <strong>Diagnostic Note:</strong> No spoken response was captured. Ensure your microphone is plugged in, browser permissions are allowed, or prompt candidate to provide an answer.`;
-  }
-  // -------------------------------------------------------------
-  // TEST CASE B: Extremely Short Input (< 15 words)
-  // -------------------------------------------------------------
-  else if (wordCount < 15) {
+    if (suggestionLine) suggestionLine.innerHTML = `⚠️ <strong>Diagnostic Note:</strong> No spoken response was captured. Please verify microphone setup.`;
+  } else if (wordCount < 15) {
     calculatedVoiceScore = 42;
     isVoiceComplete = true;
 
@@ -408,27 +512,19 @@ async function evaluateVoiceSpeech() {
       scorePill.style.color = "#f59e0b";
       scorePill.style.background = "rgba(245, 158, 11, 0.15)";
     }
-    if (cadenceLine) cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> Hesitant or clipped response (${wordCount} words)`;
-    if (naturalnessLine) naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> High brevity / Limited expression`;
-    if (suggestionLine) suggestionLine.innerHTML = `💡 <strong>Recruiter Coaching:</strong> Response was too brief for an executive assessment. Candidate needs to elaborate on technical trade-offs with complete thoughts.`;
-  }
-  // -------------------------------------------------------------
-  // TEST CASE C: Articulate, Natural Speech Assessment
-  // -------------------------------------------------------------
-  else {
+    if (cadenceLine) cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> Brief response (${wordCount} words)`;
+    if (naturalnessLine) naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> Limited elaboration`;
+    if (suggestionLine) suggestionLine.innerHTML = `💡 <strong>Coaching:</strong> Candidate should elaborate on architectural decisions with complete thoughts.`;
+  } else {
     const effectiveMins = Math.max(0.15, durationSec / 60);
     const wpm = Math.round(wordCount / effectiveMins);
 
     let cadenceRating = "Optimal conversational flow";
     let cadenceColor = "#10b981";
-    if (wpm < 80) {
-      cadenceRating = "Thoughtful pacing with reflective pauses";
-    } else if (wpm > 165) {
-      cadenceRating = "Rapid speech cadence; recommend steady breathing";
-      cadenceColor = "#f59e0b";
-    }
+    if (wpm < 80) cadenceRating = "Reflective pacing";
+    else if (wpm > 165) { cadenceRating = "Fast cadence"; cadenceColor = "#f59e0b"; }
 
-    const techTokens = ["architecture", "database", "api", "service", "performance", "scalability", "framework", "fastapi", "python", "mysql", "cache", "test", "docker", "deploy"];
+    const techTokens = ["architecture", "database", "api", "service", "performance", "scalability", "framework", "fastapi", "python", "mysql", "cache", "docker"];
     const matchedTokens = techTokens.filter(t => rawText.toLowerCase().includes(t)).length;
 
     let baseScore = 70;
@@ -442,43 +538,28 @@ async function evaluateVoiceSpeech() {
       scorePill.style.color = "#10b981";
       scorePill.style.background = "rgba(16, 185, 129, 0.15)";
     }
-    if (cadenceLine) {
-      cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> <span style="color:${cadenceColor}">${wpm} WPM (${cadenceRating})</span>`;
-    }
-    if (naturalnessLine) {
-      naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> ★★★★☆ (Authentic unscripted delivery, natural phrasing)`;
-    }
-    if (suggestionLine) {
-      suggestionLine.innerHTML = `🌟 <strong>Potential Verdict:</strong> Strong communication baseline with clear technical articulation. Spontaneous responses show high coachability and team fit. Ready for technical simulation.`;
-    }
+    if (cadenceLine) cadenceLine.innerHTML = `• <strong>Pace &amp; Flow:</strong> <span style="color:${cadenceColor}">${wpm} WPM (${cadenceRating})</span>`;
+    if (naturalnessLine) naturalnessLine.innerHTML = `• <strong>Naturalness:</strong> ★★★★☆ (Authentic unscripted delivery)`;
+    if (suggestionLine) suggestionLine.innerHTML = `🌟 <strong>Potential Verdict:</strong> Clear articulation and high coachability.`;
   }
 
-  // SAVE TO LOCALSTORAGE: Persists forever across page navigation and refreshes
-  if (activeCandidateId) {
-    saveToPersistentCache(activeCandidateId, {
+  if (activeCandidateId && isVoiceComplete) {
+    saveToPersistentCache(activeCandidateId, activeJobId, activeJobTitle, {
       voiceScore: calculatedVoiceScore,
       isVoiceDone: isVoiceComplete,
-      voiceStatus: isVoiceComplete ? "COMPLETED" : "PENDING"
+      voiceStatus: "COMPLETED",
+      hasBeenInterviewed: true
     });
 
-    // Update candidate in local array
-    const cand = candidatesList.find(c => String(c.id ?? c.candidate_id) === String(activeCandidateId));
-    if (cand) {
-      cand.voice_screening_status = isVoiceComplete ? "COMPLETED" : "PENDING";
-      cand.voice_score = calculatedVoiceScore;
-    }
-
-    // Inform FastAPI backend
     try {
       await api.updateCandidateStatus(activeCandidateId, "interviewed");
       if (typeof api.saveVoiceScreeningResult === "function") {
         await api.saveVoiceScreeningResult(activeCandidateId, calculatedVoiceScore, rawText);
       }
     } catch (e) {
-      console.warn("Backend sync notice (score safely cached in LocalStorage):", e);
+      console.warn("Backend sync notice:", e);
     }
 
-    // Refresh ATS table immediately to render updated score
     await loadATSCandidates();
   }
 }
@@ -488,19 +569,20 @@ async function evaluateVoiceSpeech() {
 // ============================================================
 function startTechnicalSimulation() {
   if (!activeCandidateId) {
-    alert("Please select a candidate first.");
+    alert("Please select a candidate from the top controls first.");
     return;
   }
-
-  const roleSelect = document.getElementById("tech-role-select");
-  const targetRole = roleSelect ? roleSelect.value : "Software Engineer";
+  if (!activeJobId || !activeJobTitle) {
+    alert("Please select the specific Job Position the candidate is interviewed for.");
+    return;
+  }
 
   isInterviewActive = true;
   chatHistory = [];
   questionNumber = 1;
   totalQuestions = 5;
   answerScores = [];
-  currentQuestion = `Could you explain the system architecture of a production ${targetRole} project you engineered, highlighting how you structured APIs and data models?`;
+  currentQuestion = `Could you explain the system architecture of a production project you engineered relevant to the ${activeJobTitle} position, highlighting how you structured APIs and data models?`;
 
   const sessionBadge = document.getElementById("session-badge");
   if (sessionBadge) {
@@ -532,7 +614,7 @@ function startTechnicalSimulation() {
   if (chatBox) chatBox.innerHTML = "";
 
   updateTurnCounter();
-  appendChatMessage("ai", `Hello ${activeCandidateName}. Let's begin your technical interview for the ${targetRole} position.\n\n📝 Question 1: ${currentQuestion}`);
+  appendChatMessage("ai", `Hello ${activeCandidateName}. Let's begin your technical interview for the ${activeJobTitle} position.\n\n📝 Question 1: ${currentQuestion}`);
 }
 
 async function submitTechnicalTurn() {
@@ -570,7 +652,7 @@ async function submitTechnicalTurn() {
 
     if (questionNumber <= totalQuestions) {
       const fallbackQuestions = [
-        "How do you design database schema relationships and index queries to prevent N+1 performance bottlenecks?",
+        `In the context of ${activeJobTitle}, how do you design schema relationships and index queries to prevent N+1 performance bottlenecks?`,
         "How do you handle API security, authentication tokens, and request validation at the gateway level?",
         "Describe your debugging strategy when a microservice starts returning intermittent 500 status codes in production.",
         "How do you structure unit and integration tests to maintain confidence during continuous deployment?"
@@ -582,7 +664,7 @@ async function submitTechnicalTurn() {
     }
 
   } catch (err) {
-    console.warn("Simulation turn heuristic fallback:", err);
+    console.warn("Simulation turn fallback:", err);
     const fallbackScore = calculateFallbackScore(text);
     answerScores.push(fallbackScore);
     chatHistory.push({ question: answeredQuestion, user: text, ai: "Response verified.", score: fallbackScore });
@@ -634,31 +716,36 @@ async function endTechnicalInterview() {
 
   if (answerScores.length > 0) {
     finalInterviewScore = Math.round(answerScores.reduce((a, b) => a + b, 0) / answerScores.length);
-    appendChatMessage("ai", `🏁 **Technical Simulation Concluded!**\n\n📊 **Average Technical Score: ${finalInterviewScore}/100**\nCompleted questions: ${answerScores.length} of ${totalQuestions}.\n\nResults are synchronized with the candidate pipeline below.`);
+    appendChatMessage("ai", `🏁 **Technical Simulation Concluded!**\n\n📊 **Average Score for ${activeJobTitle}: ${finalInterviewScore}/100**\nCompleted questions: ${answerScores.length} of ${totalQuestions}.\n\nResults are recorded in the ATS pipeline table below.`);
 
-    // SAVE TO LOCALSTORAGE: Persists tech score across page switches
     if (activeCandidateId) {
-      saveToPersistentCache(activeCandidateId, {
+      saveToPersistentCache(activeCandidateId, activeJobId, activeJobTitle, {
         techScore: finalInterviewScore,
-        techStatus: "COMPLETED"
+        techStatus: "COMPLETED",
+        hasBeenInterviewed: true
       });
 
       const cand = candidatesList.find(c => String(c.id ?? c.candidate_id) === String(activeCandidateId));
       if (cand) {
         cand.score = finalInterviewScore;
         cand.interview_notes = chatHistory;
+        cand.interviewed_position = activeJobTitle;
       }
 
       try {
         fetch("http://127.0.0.1:8000/interview/final-result", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidate_id: activeCandidateId, final_score: finalInterviewScore })
+          body: JSON.stringify({ 
+            candidate_id: activeCandidateId, 
+            job_id: activeJobId, 
+            final_score: finalInterviewScore 
+          })
         }).catch(() => {});
       } catch (e) {}
     }
 
-    // Refresh ATS pipeline table immediately
+    onContextChanged();
     await loadATSCandidates();
   } else {
     appendChatMessage("ai", `Session closed with 0 questions evaluated.`);
@@ -692,7 +779,7 @@ function appendChatMessage(sender, text) {
 }
 
 // ============================================================
-// 7. Master ATS Candidate Pipeline Table (LocalStorage Sync)
+// 7. Master ATS Candidate Pipeline Table (6 Columns)
 // ============================================================
 async function loadATSCandidates() {
   const tbody = document.getElementById("ats-candidates-tbody");
@@ -706,9 +793,7 @@ async function loadATSCandidates() {
     else if (Array.isArray(response?.data)) candidates = response.data;
     else if (Array.isArray(response?.data?.candidates)) candidates = response.data.candidates;
 
-    if (candidates.length > 0) {
-      candidatesList = candidates;
-    }
+    if (candidates.length > 0) candidatesList = candidates;
 
     if (candidatesList.length === 0) {
       tbody.innerHTML = `
@@ -725,58 +810,45 @@ async function loadATSCandidates() {
 
   } catch (err) {
     console.error("Failed to load ATS candidates:", err);
-    if (candidatesList.length > 0) {
-      tbody.innerHTML = candidatesList.map(c => renderATSRow(c)).join("");
-    } else {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" style="padding: 24px; text-align: center; color: #ef4444; font-size: 12px;">
-            Failed to fetch candidate directory from backend server.
-          </td>
-        </tr>
-      `;
-    }
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="padding: 24px; text-align: center; color: #ef4444; font-size: 12px;">
+          Failed to fetch candidate directory from backend server.
+        </td>
+      </tr>
+    `;
   }
 }
 
 function renderATSRow(candidate) {
   const candId = String(candidate.id ?? candidate.candidate_id);
-  const persistentCache = getPersistentCache();
-  const cached = persistentCache[candId] || {};
+  const cacheRecord = getCandidateInterviewRecord(candId);
 
-  // 1. Resolve Voice / Communication Score (Checks persistent storage first)
-  let isVoiceDone = (candidate.voice_screening_status || "").toUpperCase() === "COMPLETED" || cached.isVoiceDone;
-  let voiceScore = cached.voiceScore !== undefined ? cached.voiceScore : (candidate.voice_score ? Number(candidate.voice_score) : null);
-
-  if (isVoiceDone && voiceScore === null) {
-    voiceScore = 86; // Standard baseline for completed screening
-  }
+  // 1. Voice Score
+  const hasDbVoice = (candidate.voice_screening_status || "").toUpperCase() === "COMPLETED";
+  let isVoiceDone = hasDbVoice || Boolean(cacheRecord?.isVoiceDone);
+  let voiceScore = cacheRecord?.voiceScore !== undefined ? cacheRecord.voiceScore : (candidate.voice_score ? Number(candidate.voice_score) : null);
+  if (isVoiceDone && voiceScore === null) voiceScore = 86;
 
   let voiceScoreBadge = `<span style="color: var(--text-muted); font-size: 11px;">Pending</span>`;
   if (voiceScore !== null && voiceScore > 0) {
     const vColor = voiceScore >= 70 ? "#10b981" : "#f59e0b";
-    voiceScoreBadge = `<strong style="color: ${vColor}; font-size: 12px;">${voiceScore}/100</strong> <span style="font-size: 10px; color: var(--text-muted);">(Evaluated)</span>`;
+    voiceScoreBadge = `<strong style="color: ${vColor}; font-size: 12px;">${voiceScore}/100</strong>`;
   } else if (isVoiceDone) {
     voiceScoreBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700;">Completed</span>`;
   }
 
-  // 2. Resolve Technical Interview Score (Checks persistent storage first)
-  let techScore = cached.techScore !== undefined ? cached.techScore : null;
-
-  if (techScore === null) {
-    if (Array.isArray(candidate.interview_notes) && candidate.interview_notes.length > 0) {
-      const sc = candidate.interview_notes.map(n => Number(n.score || 0)).filter(s => s > 0);
-      if (sc.length > 0) techScore = Math.round(sc.reduce((a, b) => a + b, 0) / sc.length);
-    } else if (candidate.score !== undefined && candidate.score !== null && Number(candidate.score) > 0) {
-      techScore = Number(candidate.score);
-    }
+  // 2. Tech Score
+  let techScore = cacheRecord?.techScore !== undefined ? cacheRecord.techScore : null;
+  if (techScore === null && candidate.score !== undefined && candidate.score !== null && Number(candidate.score) > 0) {
+    techScore = Number(candidate.score);
   }
 
   const techScoreBadge = (techScore !== null && techScore > 0)
     ? `<strong style="color: ${techScore >= 70 ? '#10b981' : '#f59e0b'}; font-size: 12px;">${techScore}/100</strong>`
     : `<span style="color: var(--text-muted); font-size: 11px;">Pending</span>`;
 
-  // 3. Resolve Skill Gap Breakdown
+  // 3. Skill Gap
   const skills = extractSkills(candidate);
   const required = ["python", "fastapi", "mysql", "docker", "rest api"];
   const missing = required.filter(r => !skills.some(s => s.toLowerCase().includes(r)));
@@ -787,7 +859,7 @@ function renderATSRow(candidate) {
         ${missing.slice(0, 2).map(sk => `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">✕ ${sk.toUpperCase()}</span>`).join("")}
       </div>`;
 
-  // 4. Resolve Stage Badge Styles
+  // 4. Status Badge
   const currentStatus = (candidate.status || "applied").toLowerCase();
   let statusBadgeColor = "#64748b";
   let statusBadgeBg = "rgba(100, 116, 139, 0.12)";
@@ -799,7 +871,7 @@ function renderATSRow(candidate) {
     <tr id="ats-row-${candId}" style="border-bottom: 1px solid var(--border-color);">
       <td style="padding: 12px 10px; font-size: 12px;">
         <strong style="color: var(--text-color); display: block;">${escapeHtml(candidate.name || "Candidate")}</strong>
-        <span style="color: var(--text-muted); font-size: 10px;">${escapeHtml(candidate.email || "No email provided")}</span>
+        <span style="color: var(--text-muted); font-size: 10px;">${escapeHtml(candidate.email || "No email")}</span>
       </td>
       <td style="padding: 12px 10px;">${voiceScoreBadge}</td>
       <td style="padding: 12px 10px;">${techScoreBadge}</td>
@@ -879,6 +951,7 @@ function escapeHtml(value) {
 }
 
 window.loadCandidateContext = loadCandidateContext;
+window.onContextChanged = onContextChanged;
 window.rotateVoiceTopic = rotateVoiceTopic;
 window.startVoiceRecording = startVoiceRecording;
 window.stopVoiceRecording = stopVoiceRecording;

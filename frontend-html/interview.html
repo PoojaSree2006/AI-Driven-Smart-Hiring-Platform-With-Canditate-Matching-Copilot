@@ -104,6 +104,19 @@
       margin-left: auto;
       text-align: right;
     }
+    .selection-controls-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 768px) {
+      .selection-controls-wrapper {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
   </style>
 </head>
 <body>
@@ -129,7 +142,7 @@
       </div>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main Content Area -->
     <main class="main-content">
       <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
         <div>
@@ -137,7 +150,7 @@
             Unified Assessment Hub &amp; ATS
           </h1>
           <p class="page-subtitle" style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 13px;">
-            Evaluate verbal communication potential and deep technical competencies side-by-side
+            Conduct role-specific technical evaluations and voice screening per candidate
           </p>
         </div>
         <span style="background: #7c3aed; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">
@@ -145,34 +158,49 @@
         </span>
       </div>
 
-      <!-- Candidate Selection Header Banner -->
-      <div class="card" style="padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <!-- Candidate & Position Selection Controls -->
+      <div class="card" style="padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">👤</span>
+          <span style="font-size: 24px;">👤</span>
           <div>
-            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Candidate</div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Interview Setup</div>
             <div id="sim-candidate-header" style="font-size: 14px; font-weight: 700; color: var(--text-color);">
-              Select candidate to begin evaluation
+              Select candidate and job position to interview for
             </div>
+            <div id="pair-history-subtext" style="font-size: 11px; color: #3b82f6; margin-top: 2px; display: none;"></div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <select id="candidate-select" style="padding: 8px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); min-width: 220px;">
-            <option value="">Loading candidate directory...</option>
-          </select>
-          <button onclick="loadCandidateContext()" class="btn-primary" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">
-            Load Profile
-          </button>
+        <!-- Side-by-Side Selectors -->
+        <div class="selection-controls-wrapper">
+          <div>
+            <label for="candidate-select" style="display: block; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Candidate</label>
+            <select id="candidate-select" onchange="onContextChanged()" style="padding: 8px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); min-width: 190px;">
+              <option value="">Loading candidate directory...</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="job-select" style="display: block; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Job Position to Interview For</label>
+            <select id="job-select" onchange="onContextChanged()" style="padding: 8px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); min-width: 210px;">
+              <option value="">Loading active job positions...</option>
+            </select>
+          </div>
+
+          <div style="align-self: flex-end;">
+            <button onclick="loadCandidateContext()" class="btn-primary" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; height: 35px;">
+              Load Context
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- ============================================================
-           MIDDLE GRID: VOICE SCREENING vs TECHNICAL COPILOT
+            MIDDLE GRID: VOICE SCREENING vs TECHNICAL COPILOT
       ============================================================ -->
       <div class="assessment-grid">
 
-        <!-- MODULE A: VOICE & COMMUNICATION SCREENING -->
+        <!-- MODULE A: VOICE SCREENING -->
         <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg); display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -187,7 +215,6 @@
               Speech-to-text evaluation for cadence, vocabulary, and authentic unscripted expression
             </p>
 
-            <!-- Dynamic Rotating Topic Prompt -->
             <div class="topic-card">
               <div style="font-size: 10px; font-weight: 700; color: #3b82f6; text-transform: uppercase; margin-bottom: 4px;">
                 Speaking Prompt (<span id="voice-topic-category">Architecture &amp; Decisions</span>)
@@ -197,7 +224,6 @@
               </div>
             </div>
 
-            <!-- Mic & Timer Centerpiece -->
             <div style="background: var(--bg-secondary); border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 12px; border: 1px solid var(--border-color);">
               <div id="mic-circle" class="mic-indicator">🎙️</div>
               <div id="voice-timer" style="font-size: 20px; font-weight: 800; letter-spacing: 1px; color: var(--text-color);">00:00</div>
@@ -215,7 +241,6 @@
               </div>
             </div>
 
-            <!-- Live Speech-to-Text Transcript Area -->
             <label style="font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">
               Live Transcribed Speech
             </label>
@@ -232,7 +257,6 @@
               </button>
             </div>
 
-            <!-- Potential & Naturalness Evaluation Feedback Box -->
             <div id="voice-potential-result" class="potential-box">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Voice Potential Breakdown</div>
@@ -249,7 +273,7 @@
           </div>
         </div>
 
-        <!-- MODULE B: TECHNICAL INTERVIEW SIMULATION COPILOT -->
+        <!-- MODULE B: TECHNICAL INTERVIEW SIMULATION -->
         <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg); display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -269,30 +293,22 @@
               Technical question simulation covering project depth, system architecture &amp; databases
             </p>
 
-            <!-- Role Selector & Start Simulation -->
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <select id="tech-role-select" style="flex: 1; padding: 8px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color);">
-                <option value="Python Developer">Python Developer</option>
-                <option value="Java Developer">Java Developer</option>
-                <option value="Frontend Developer">Frontend Developer</option>
-                <option value="Backend Developer">Backend Developer</option>
-                <option value="Data Scientist">Data Scientist</option>
-                <option value="DevOps Engineer">DevOps Engineer</option>
-              </select>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span id="active-sim-role-text" style="font-size: 12px; font-weight: 600; color: var(--text-color);">
+                Interviewing For: <em>Select from top dropdown</em>
+              </span>
               <button id="start-interview-btn" onclick="startTechnicalSimulation()" class="btn-primary" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">
                 Start Tech Round
               </button>
             </div>
 
-            <!-- Chat Conversation Container -->
             <div id="chat-box" style="border: 1px solid var(--border-color); border-radius: 8px; height: 230px; overflow-y: auto; padding: 12px; background: var(--bg-secondary); display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
               <div class="chat-bubble ai" id="chat-welcome-msg">
-                Welcome to the Technical Interview Copilot. Select a role and click 'Start Tech Round' to begin the 5-turn evaluation.
+                Welcome to the Technical Interview Copilot. Select a candidate and the job position to interview for, then click 'Start Tech Round' to begin.
               </div>
             </div>
           </div>
 
-          <!-- Turn Input & Actions -->
           <div>
             <div style="display: flex; gap: 8px; align-items: center;">
               <input type="text" id="chat-input" placeholder="Type technical response..." style="flex: 1; padding: 8px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color);" disabled>
@@ -309,7 +325,7 @@
       </div>
 
       <!-- ============================================================
-           BOTTOM SECTION: MASTER ATS CANDIDATE EVALUATION & DECISION TABLE
+            BOTTOM SECTION: MASTER ATS CANDIDATE EVALUATION & DECISION TABLE
       ============================================================ -->
       <div class="card" style="margin-top: 24px; padding: 22px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -318,7 +334,7 @@
               📋 Candidate Evaluation &amp; ATS Pipeline
             </h2>
             <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
-              Compare Voice/Communication potential and Technical scores before making hiring decisions
+              Direct performance assessment across voice screening and technical copilot rounds
             </p>
           </div>
           <button onclick="loadATSCandidates()" class="btn-primary" style="padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
@@ -327,7 +343,7 @@
         </div>
 
         <div style="overflow-x: auto; margin-top: 14px;">
-          <table class="ats-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
+          <table class="ats-table" style="width: 100%; border-collapse: collapse; min-width: 850px;">
             <thead>
               <tr style="text-align: left;">
                 <th>Candidate</th>

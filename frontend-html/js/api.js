@@ -4,7 +4,13 @@
    AI Recruitment Copilot
    ============================================================ */
 
-const API_BASE_URL = "http://127.0.0.1:8000"; 
+const isLocalhost = Boolean(
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname.endsWith(".local")
+);
+
+const API_BASE_URL = isLocalhost ? "http://127.0.0.1:8000" : "";
  
 /** 
  * Core Network Fetch Wrapper with Response Parsing & Global Error Handling 
