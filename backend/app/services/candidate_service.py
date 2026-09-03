@@ -1,3 +1,4 @@
+
 """
 services/candidate_service.py
 ==============================
@@ -17,7 +18,11 @@ from app.config import get_settings
 from app.models.candidate import Candidate
 from app.services.parser import parse_resume
 from app.services.extractor import extract_candidate_info
-from app.utils.exceptions import InvalidFileError, CandidateNotFoundError
+from app.utils.exceptions import (
+    InvalidFileError,
+    CandidateNotFoundError,
+    ResumeParsingError,
+)
 
 settings = get_settings()
 
@@ -31,25 +36,96 @@ def parse_experience_years(value: str | None) -> float | None:
 
 def validate_upload_file(file: UploadFile) -> None:
     extension = Path(file.filename or "").suffix.lower()
+
     if extension not in settings.ALLOWED_EXTENSIONS:
-        raise InvalidFileError(f"Unsupported file type '{extension}'. Only PDF and DOCX are allowed.")
+        raise InvalidFileError(
+            f"Unsupported file type '{extension}'. Only PDF and DOCX are allowed."
+        )
+
     if file.size is not None and file.size > settings.max_file_size_bytes:
-        raise InvalidFileError(f"File exceeds maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB.")
+        raise InvalidFileError(
+            f"File exceeds maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB."
+        )
+
+
+def validate_resume_content(text: str) -> None:
+    """
+    Checks whether the extracted document looks like a resume/CV.
+
+    Raises ResumeParsingError when the document does not contain
+    enough resume-related information.
+    """
+
+    if not text or len(text.strip()) < 100:
+        raise ResumeParsingError(
+            "The uploaded document does not appear to be a resume. "
+            "Please upload a valid resume."
+        )
+
+    text_lower = text.lower()
+
+    resume_sections = [
+        "education",
+        "experience",
+        "work experience",
+        "professional experience",
+        "skills",
+        "technical skills",
+        "projects",
+        "certifications",
+        "internship",
+        "internships",
+        "career objective",
+        "professional summary",
+        "summary",
+    ]
+
+    matched_sections = sum(
+        1 for section in resume_sections
+        if section in text_lower
+    )
+
+    has_email = bool(
+        re.search(
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            text
+        )
+    )
+
+    has_phone = bool(
+        re.search(
+            r"(?:\+91[\s-]?)?[6-9]\d{9}\b",
+            text
+        )
+    )
+
+    # A resume should contain several resume-related sections
+    # and normally have contact information.
+    if matched_sections < 3 or not (has_email or has_phone):
+        raise ResumeParsingError(
+            "The uploaded document does not appear to be a resume. "
+            "Please upload a valid resume containing contact information, "
+            "education, skills, or experience."
+        )
 
 
 def save_uploaded_file(file: UploadFile) -> Path:
     extension = Path(file.filename or "").suffix.lower()
     unique_name = f"{uuid.uuid4()}{extension}"
     destination = settings.UPLOAD_DIR / unique_name
+
     with destination.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+
     return destination
 
 
 def save_extracted_json(candidate_id: str, data: dict) -> Path:
     destination = settings.EXTRACTED_DATA_DIR / f"{candidate_id}.json"
+
     with destination.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
+
     return destination
 
 
@@ -59,7 +135,20 @@ def process_resume_upload(file: UploadFile, db: Session) -> Candidate:
 
     try:
         raw_text = parse_resume(saved_path)
+
+        # Check whether the uploaded document is actually a resume
+        validate_resume_content(raw_text)
+
+        # Extract candidate information only after resume validation
         structured_data = extract_candidate_info(raw_text)
+                    # Check whether candidate name was extracted
+        name = structured_data.get("name")
+
+        if not name or not str(name).strip():
+         raise InvalidFileError(
+        "Name not found. Please add your name to the resume and upload it again."
+    )
+
     except Exception:
         saved_path.unlink(missing_ok=True)
         raise
@@ -68,10 +157,19 @@ def process_resume_upload(file: UploadFile, db: Session) -> Candidate:
     phone = structured_data.get("phone")
 
     existing_candidate = None
+
     if email:
-        existing_candidate = db.query(Candidate).filter(Candidate.email == email).first()
+        existing_candidate = (
+            db.query(Candidate)
+            .filter(Candidate.email == email)
+            .first()
+        )
     elif phone:
-        existing_candidate = db.query(Candidate).filter(Candidate.phone == phone).first()
+        existing_candidate = (
+            db.query(Candidate)
+            .filter(Candidate.phone == phone)
+            .first()
+        )
 
     if existing_candidate:
         saved_path.unlink(missing_ok=True)
@@ -106,64 +204,115 @@ def process_resume_upload(file: UploadFile, db: Session) -> Candidate:
     db.add(candidate)
     db.commit()
     db.refresh(candidate)
+
     return candidate
 
 
 def _sanitize_candidate(c: Candidate) -> Candidate:
     """Ensures list columns never evaluate to None during serialization."""
-    if c.skills is None: c.skills = []
-    if c.education is None: c.education = []
-    if c.experience is None: c.experience = []
-    if c.projects is None: c.projects = []
-    if c.certifications is None: c.certifications = []
-    if c.internships is None: c.internships = []
-    if c.trainings is None: c.trainings = []
+
+    if c.skills is None:
+        c.skills = []
+
+    if c.education is None:
+        c.education = []
+
+    if c.experience is None:
+        c.experience = []
+
+    if c.projects is None:
+        c.projects = []
+
+    if c.certifications is None:
+        c.certifications = []
+
+    if c.internships is None:
+        c.internships = []
+
+    if c.trainings is None:
+        c.trainings = []
+
     return c
 
 
 def get_all_candidates(db: Session) -> list[Candidate]:
-    candidates = db.query(Candidate).order_by(Candidate.created_at.desc()).all()
+    candidates = (
+        db.query(Candidate)
+        .order_by(Candidate.created_at.desc())
+        .all()
+    )
+
     return [_sanitize_candidate(c) for c in candidates]
 
 
 def get_candidate_by_id(db: Session, candidate_id: str) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    candidate = (
+        db.query(Candidate)
+        .filter(Candidate.id == candidate_id)
+        .first()
+    )
+
     if not candidate:
-        raise CandidateNotFoundError(f"Candidate with id '{candidate_id}' not found.")
+        raise CandidateNotFoundError(
+            f"Candidate with id '{candidate_id}' not found."
+        )
+
     return _sanitize_candidate(candidate)
 
 
 def delete_candidate(db: Session, candidate_id: str) -> None:
     candidate = get_candidate_by_id(db, candidate_id)
+
     if candidate.resume_file_path:
         Path(candidate.resume_file_path).unlink(missing_ok=True)
+
     if candidate.extracted_json_path:
         Path(candidate.extracted_json_path).unlink(missing_ok=True)
+
     db.delete(candidate)
     db.commit()
 
 
 def search_candidates(db: Session, query: str) -> list[Candidate]:
     like_pattern = f"%{query}%"
+
     candidates = (
         db.query(Candidate)
-        .filter((Candidate.name.ilike(like_pattern)) | (Candidate.email.ilike(like_pattern)))
+        .filter(
+            (Candidate.name.ilike(like_pattern))
+            | (Candidate.email.ilike(like_pattern))
+        )
         .order_by(Candidate.created_at.desc())
         .all()
     )
+
     return [_sanitize_candidate(c) for c in candidates]
 
 
 def get_dashboard_stats(db: Session) -> dict:
     candidates = get_all_candidates(db)
+
     total = len(candidates)
-    exp_values = [parse_experience_years(c.experience_years) for c in candidates if parse_experience_years(c.experience_years) is not None]
-    total_skills = sum(len(c.skills or []) for c in candidates)
+
+    exp_values = [
+        parse_experience_years(c.experience_years)
+        for c in candidates
+        if parse_experience_years(c.experience_years) is not None
+    ]
+
+    total_skills = sum(
+        len(c.skills or [])
+        for c in candidates
+    )
 
     return {
         "total_candidates": total,
         "total_uploads": total,
-        "average_experience": round(sum(exp_values) / len(exp_values), 1) if exp_values else 0.0,
+        "average_experience": (
+            round(sum(exp_values) / len(exp_values), 1)
+            if exp_values
+            else 0.0
+        ),
         "total_skills_extracted": total_skills,
     }
 
@@ -172,35 +321,85 @@ def get_analytics(db: Session) -> dict:
     candidates = get_all_candidates(db)
 
     skill_counts: dict[str, int] = {}
+
     for c in candidates:
         for skill in (c.skills or []):
             skill_counts[skill] = skill_counts.get(skill, 0) + 1
-    top_skills = sorted([{"skill": k, "count": v} for k, v in skill_counts.items()], key=lambda x: x["count"], reverse=True)[:10]
+
+    top_skills = sorted(
+        [
+            {"skill": k, "count": v}
+            for k, v in skill_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
+    )[:10]
 
     edu_counts: dict[str, int] = {}
+
     for c in candidates:
         for edu in (c.education or []):
-            degree = (edu.get("degree") or "Unknown").strip() if isinstance(edu, dict) else "Unknown"
-            level = "Bachelor's" if "bachelor" in degree.lower() or "b." in degree.lower() else \
-                    "Master's" if "master" in degree.lower() or "m." in degree.lower() else \
-                    "PhD" if "phd" in degree.lower() or "ph.d" in degree.lower() else "Other"
-            edu_counts[level] = edu_counts.get(level, 0) + 1
-    education_distribution = [{"degree_level": k, "count": v} for k, v in edu_counts.items()]
+            degree = (
+                (edu.get("degree") or "Unknown").strip()
+                if isinstance(edu, dict)
+                else "Unknown"
+            )
 
-    buckets = {"0-2 years": 0, "3-5 years": 0, "6-10 years": 0, "10+ years": 0}
+            level = (
+                "Bachelor's"
+                if "bachelor" in degree.lower()
+                or "b." in degree.lower()
+                else "Master's"
+                if "master" in degree.lower()
+                or "m." in degree.lower()
+                else "PhD"
+                if "phd" in degree.lower()
+                or "ph.d" in degree.lower()
+                else "Other"
+            )
+
+            edu_counts[level] = edu_counts.get(level, 0) + 1
+
+    education_distribution = [
+        {
+            "degree_level": k,
+            "count": v
+        }
+        for k, v in edu_counts.items()
+    ]
+
+    buckets = {
+        "0-2 years": 0,
+        "3-5 years": 0,
+        "6-10 years": 0,
+        "10+ years": 0,
+    }
+
     for c in candidates:
         years = parse_experience_years(c.experience_years)
+
         if years is None:
             continue
+
         if years <= 2:
             buckets["0-2 years"] += 1
+
         elif years <= 5:
             buckets["3-5 years"] += 1
+
         elif years <= 10:
             buckets["6-10 years"] += 1
+
         else:
             buckets["10+ years"] += 1
-    experience_distribution = [{"range_label": k, "count": v} for k, v in buckets.items()]
+
+    experience_distribution = [
+        {
+            "range_label": k,
+            "count": v
+        }
+        for k, v in buckets.items()
+    ]
 
     return {
         "top_skills": top_skills,

@@ -16,27 +16,43 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("job-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const title = document.getElementById("title-input").value.trim();
-    const location = document.getElementById("location-input").value.trim();
+  e.preventDefault();
 
-    if (!title) return;
+  const title = document.getElementById("title-input").value.trim();
+  const location = document.getElementById("location-input").value.trim();
 
-    try {
-      await api.createJob({
-        title: title,
-        location: location || null,
-        required_skills: skillsDraft
-      });
+  if (!title) {
+    alert("Job title is required");
+    return;
+  }
 
-      document.getElementById("job-form").reset();
-      skillsDraft = {};
-      renderSkillsDraft();
-      loadJobs();
-    } catch (err) {
-      alert("Failed to create job: " + (err.message || err));
-    }
-  });
+  try {
+    const jobData = {
+      title: title,
+      description: "Job posting created from frontend",
+      location: location || null,
+      min_experience: "0",
+      required_skills: skillsDraft
+    };
+
+    console.log("Sending job data:", jobData);
+
+    const result = await api.createJob(jobData);
+
+    console.log("Job created successfully:", result);
+
+    document.getElementById("job-form").reset();
+    skillsDraft = {};
+    renderSkillsDraft();
+
+    await loadJobs();
+
+    alert("Job posting created successfully!");
+  } catch (err) {
+    console.error("Failed to create job:", err);
+    alert("Failed to create job: " + (err.message || err));
+  }
+});
 });
 
 function renderSkillsDraft() {

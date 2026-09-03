@@ -204,31 +204,126 @@ def extract_name(text: str) -> Optional[str]:
     the first line" convention holds for the vast majority of resume
     templates, including the one in the reference UI screenshot.
     """
+    #lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+    #for line in lines[:5]:  # only check the first few lines
+        #if _looks_like_name(line):
+            #return line
+
+    #return None
+    def extract_name(text: str) -> Optional[str]:
+     """
+      Extract candidate name from the beginning of the resume.
+
+    If a valid name is not found, return None.
+    """
+
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-    for line in lines[:5]:  # only check the first few lines
+    # Check only the first 5 non-empty lines
+    for line in lines[:5]:
         if _looks_like_name(line):
             return line
 
+    # Name was not found
     return None
 
 
 def _looks_like_name(line: str) -> bool:
-    """Helper: checks whether a line plausibly contains a person's name."""
-    if not (2 <= len(line.split()) <= 4):
+    def _looks_like_name(line: str) -> bool:
+
+     """
+     Checks whether a line is likely to be a person's name.
+    """
+
+    line = line.strip()
+    words = line.split()
+
+    # A name should normally contain 2-4 words
+    if not (2 <= len(words) <= 4):
         return False
+
+    # Reject numbers
     if any(char.isdigit() for char in line):
         return False
-    if "@" in line or "http" in line.lower():
-        return False
-    # Reject lines that are clearly section headers or contact info labels
-    reject_words = {"resume", "cv", "curriculum", "vitae", "phone", "email", "address"}
-    if any(word in line.lower() for word in reject_words):
-        return False
-    # A real name is mostly alphabetic characters (allowing spaces, periods, hyphens)
-    letters_ratio = sum(char.isalpha() or char.isspace() for char in line) / max(len(line), 1)
-    return letters_ratio > 0.8
 
+    # Reject email addresses and URLs
+    if "@" in line:
+        return False
+
+    if "http" in line.lower():
+        return False
+
+    lower_line = line.lower()
+
+    # Reject common resume headings
+    reject_words = {
+        "resume",
+        "cv",
+        "curriculum",
+        "vitae",
+        "phone",
+        "email",
+        "address",
+        "skills",
+        "technical skills",
+        "education",
+        "experience",
+        "work experience",
+        "professional experience",
+        "projects",
+        "certifications",
+        "objective",
+        "summary",
+        "profile",
+        "developer",
+        "engineer",
+        "student",
+        "intern",
+        "software developer",
+        "software engineer",
+        "python developer",
+        "java developer",
+    }
+
+    if lower_line in reject_words:
+        return False
+
+    # Reject lines containing these words
+    for word in reject_words:
+        if word in lower_line:
+            return False
+
+    # Reject college/institute/degree lines
+    education_words = {
+        "college",
+        "university",
+        "institute",
+        "school",
+        "technology",
+        "engineering",
+        "bachelor",
+        "master",
+        "b.tech",
+        "m.tech",
+        "diploma",
+    }
+
+    if any(word in lower_line for word in education_words):
+        return False
+
+    # Allow mostly alphabetic characters
+    allowed_characters = sum(
+        char.isalpha() or char.isspace() or char in ".-'"
+        for char in line
+    )
+
+    letters_ratio = allowed_characters / max(len(line), 1)
+
+    if letters_ratio < 0.8:
+        return False
+
+    return True
 
 def extract_location(text: str) -> Optional[str]:
     """
@@ -473,6 +568,13 @@ def extract_candidate_info(raw_text: str) -> dict:
     """
     try:
         sections = _split_into_sections(raw_text)
+        name = extract_name(raw_text)
+
+        if not name:
+            raise ExtractionError(
+                "Candidate name not found in the resume. "
+                "Please add the candidate's name and upload the resume again."
+            )
 
         return {
             "name": extract_name(raw_text),
