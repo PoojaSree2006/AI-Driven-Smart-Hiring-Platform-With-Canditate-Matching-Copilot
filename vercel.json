@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/app/main.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "frontend-html/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/interview/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/candidates/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/jobs/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/upload/(.*)",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend-html/$1"
+    }
+  ]
+}
