@@ -1,0 +1,49 @@
+{
+  "name": "Jestina Mangol",
+  "email": "jestina.mangol@gmail.com",
+  "phone": "(249) 346-3648",
+  "location": "Nashville, TN",
+  "linkedin": "https://linkedin.com/in/jestinamangol",
+  "github": null,
+  "experience_years": "1",
+  "skills": [
+    "Django",
+    "Flask",
+    "TensorFlow",
+    "PyTorch",
+    "Pandas",
+    "NumPy"
+  ],
+  "education": [
+    {
+      "degree": "Bachelor of Science in",
+      "institution": null,
+      "year": null
+    }
+  ],
+  "experience": [
+    {
+      "title": null,
+      "company": null,
+      "duration": "Jul 2023 - Present",
+      "description": "Led the development and implementation of a new data processing system using Python, improving data efficiency by 50% and significantly reducing the time spent on manual data tasks. Successfully automated 5 key business processes using Python scripts, resulting in a productivity increase of 30% and an annual cost saving of $100,000. Spearheaded a team project to overhaul the company's outdated website, utilizing Django framework, leading to an increase in site traffic by 40% and customer engagement by 25%. Junior Python Developer at Eventbrite, TN"
+    },
+    {
+      "title": null,
+      "company": null,
+      "duration": "Sep 2022 - May 2023",
+      "description": "Developed an automated ticketing system using Python, which improved ticketing efficiency by 35%. Successfully debugged and enhanced the existing codebase, reducing system errors by 20%. Led a team project to integrate third-party APIs into the Eventbrite platform, expanding functionality and increasing user engagement by 15%. Implemented a new data analysis tool using Python, resulting in a 40% reduction in time spent on data processing tasks."
+    }
+  ],
+  "projects": [],
+  "certifications": [
+    "PCEP \u2013 Certified Entry-Level Python Programmer",
+    "Feb 2022",
+    "Microsoft Certification: Introduction to Programming Using",
+    "Python",
+    "Jun 2020",
+    "Memberships",
+    "Python Software Foundation (PSF)",
+    "Association for Computing Machinery (ACM)"
+  ]
+}

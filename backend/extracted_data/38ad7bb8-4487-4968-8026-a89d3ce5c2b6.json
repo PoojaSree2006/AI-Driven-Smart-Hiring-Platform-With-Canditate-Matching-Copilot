@@ -1,0 +1,38 @@
+{
+  "name": "Michael Johnson",
+  "email": "michael.johnson@email.com",
+  "phone": "001\n(555) 987-6543",
+  "location": "Techville, TX",
+  "linkedin": "https://linkedin.com/in/michaeljohnsondata",
+  "github": null,
+  "experience_years": null,
+  "skills": [
+    "Python",
+    "R",
+    "SQL",
+    "Communication",
+    "Tableau"
+  ],
+  "education": [
+    {
+      "degree": "Bachelor of Science in Data Science",
+      "institution": "May",
+      "year": "2023"
+    }
+  ],
+  "experience": [],
+  "projects": [],
+  "certifications": [
+    "Certified Data Analyst, DataCamp, August 2023",
+    "Extracurricular Activities",
+    "Data Science Club, Vice President, Techville University, September 2020 - May",
+    "2023",
+    "Annual Techville Hackathon, Participant, 2021 & 2022",
+    "Languages",
+    "English: Fluent",
+    "Spanish: Intermediate",
+    "Copyright @ SampleTemplates.com",
+    "References Available upon request.",
+    "Copyright @ SampleTemplates.com"
+  ]
+}

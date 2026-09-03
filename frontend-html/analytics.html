@@ -4,10 +4,67 @@
   <meta charset="UTF-8">
   <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Recruitment Copilot - Analytics</title>
+  <title>AI Recruitment Copilot - Visual Analytics &amp; Intelligence</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- Chart.js for data visualization -->
+  <!-- Chart.js for high-fidelity multi-color visualizations -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .analytics-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 992px) {
+      .analytics-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .kpi-card {
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+    }
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .analytics-grid-main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 1024px) {
+      .analytics-grid-main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .leaderboard-table th {
+      padding: 10px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .leaderboard-table td {
+      padding: 10px 8px;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -22,7 +79,7 @@
         <a href="upload.html" class="nav-link">Resume Upload</a>
         <a href="jobs.html" class="nav-link">Job Postings</a>
         <a href="matching.html" class="nav-link">Matching &amp; Skill Analysis</a>
-        <a href="interview.html" class="nav-link">Interview Assistant</a>
+        <a href="interview.html" class="nav-link">Interview Assistant &amp; Voice</a>
         <a href="analytics.html" class="nav-link active">Analytics</a>
       </nav>
       <div class="sidebar-footer">
@@ -34,55 +91,185 @@
 
     <!-- Main Content -->
     <main class="main-content">
-      <div class="page-header">
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
         <div>
-          <h1 class="page-title">Analytics &amp; Insights</h1>
-          <p class="page-subtitle">Aggregate metrics across your processed talent pool</p>
+          <h1 class="page-title" style="margin: 0; font-size: 24px; font-weight: 800;">
+            Talent Analytics &amp; Visual Intelligence
+          </h1>
+          <p class="page-subtitle" style="margin: 6px 0 0 0; color: var(--text-muted); font-size: 13px;">
+            Multi-dimensional evaluation: Candidate ranking, skill gap distribution, and voice vs. technical correlation
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="window.print()" class="btn-secondary" style="padding: 8px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-color);">
+            🖨️ Export Report
+          </button>
+          <button onclick="loadAnalyticsData()" class="btn-primary" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+            🔄 Refresh Analytics
+          </button>
         </div>
       </div>
 
       <!-- Loading / Error Message -->
       <div id="analytics-loading" style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-        Loading database analytics...
+        Loading intelligence metrics from database...
       </div>
 
-      <!-- Grid Container for Charts -->
-      <div id="analytics-grid" class="grid-2" style="display: none;">
-        <!-- Top Extracted Skills Chart -->
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h2 class="card-title" style="margin-bottom: 0;">Top Extracted Skills</h2>
-            <span style="font-size: 11px; color: var(--text-muted);">Frequency Count</span>
+      <!-- ============================================================
+           1. TOP KPI PULSE CARDS
+      ============================================================ -->
+      <div class="analytics-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Talent Pool</div>
+          <div id="kpi-total-candidates" class="kpi-value" style="color: #3b82f6;">0</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Total processed profiles</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Avg Candidate Score</div>
+          <div id="kpi-avg-score" class="kpi-value" style="color: #10b981;">0%</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Across technical turns</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Voice Screenings</div>
+          <div id="kpi-voice-ratio" class="kpi-value" style="color: #818cf8;">0</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Completed soft skill rounds</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Pipeline Conversion</div>
+          <div id="kpi-conversion-rate" class="kpi-value" style="color: #f59e0b;">0%</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Applied to shortlisted</div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           2. MAIN 2-COLUMN CHART GRID
+      ============================================================ -->
+      <div id="analytics-grid" style="display: none;">
+
+        <div class="analytics-grid-main">
+          <!-- CHART 1: Pipeline Stage Distribution (Multi-color Donut) -->
+          <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div>
+                <h2 class="card-title" style="margin: 0; font-size: 15px; font-weight: 700;">
+                  📊 Recruitment Pipeline Velocity
+                </h2>
+                <span style="font-size: 11px; color: var(--text-muted);">Stage breakdown across active candidates</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(59, 130, 246, 0.12); color: #3b82f6; padding: 2px 8px; border-radius: 10px;">
+                Funnel
+              </span>
+            </div>
+            <div style="height: 250px; position: relative; display: flex; justify-content: center; align-items: center;">
+              <canvas id="pipeline-donut-chart"></canvas>
+            </div>
           </div>
-          <div style="height: 240px; position: relative;">
-            <canvas id="skills-chart"></canvas>
+
+          <!-- CHART 2: Missing Skill Gap Frequency (Mentor Diagram Top Branch) -->
+          <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div>
+                <h2 class="card-title" style="margin: 0; font-size: 15px; font-weight: 700;">
+                  ⚠️ Candidate Skill Gap Analysis
+                </h2>
+                <span style="font-size: 11px; color: var(--text-muted);">Most frequently missing skills vs. job specs</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(239, 68, 68, 0.12); color: #ef4444; padding: 2px 8px; border-radius: 10px;">
+                Critical Deficits
+              </span>
+            </div>
+            <div style="height: 250px; position: relative;">
+              <canvas id="skill-gaps-chart"></canvas>
+            </div>
           </div>
         </div>
 
-        <!-- Education Distribution Chart -->
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h2 class="card-title" style="margin-bottom: 0;">Education Breakdown</h2>
-            <span style="font-size: 11px; color: var(--text-muted);">Degree Level</span>
+        <!-- ============================================================
+             3. FULL-WIDTH DUAL-SCORE CORRELATION & CANDIDATE LEADERBOARD
+        ============================================================ -->
+        <div class="analytics-grid-main">
+          <!-- CHART 3: Voice Potential vs. Technical Competence (Dual Bar) -->
+          <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div>
+                <h2 class="card-title" style="margin: 0; font-size: 15px; font-weight: 700;">
+                  🎯 Voice vs. Technical Competence
+                </h2>
+                <span style="font-size: 11px; color: var(--text-muted);">Soft skill fluency compared to technical depth</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.12); color: #10b981; padding: 2px 8px; border-radius: 10px;">
+                Dual Metric
+              </span>
+            </div>
+            <div style="height: 260px; position: relative;">
+              <canvas id="dual-score-chart"></canvas>
+            </div>
           </div>
-          <div style="height: 240px; position: relative; display: flex; justify-content: center;">
-            <canvas id="edu-chart"></canvas>
+
+          <!-- CHART 4: Top Extracted Skills Density -->
+          <div class="card" style="padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <div>
+                <h2 class="card-title" style="margin: 0; font-size: 15px; font-weight: 700;">
+                  ⚡ Talent Market Skill Density
+                </h2>
+                <span style="font-size: 11px; color: var(--text-muted);">Core verified competencies in database</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(124, 58, 237, 0.12); color: #7c3aed; padding: 2px 8px; border-radius: 10px;">
+                Stack Density
+              </span>
+            </div>
+            <div style="height: 260px; position: relative;">
+              <canvas id="top-skills-chart"></canvas>
+            </div>
           </div>
         </div>
 
-        <!-- Experience Distribution Chart (Spans full width) -->
-        <div class="card" style="grid-column: span 2;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h2 class="card-title" style="margin-bottom: 0;">Experience Distribution</h2>
-            <span style="font-size: 11px; color: var(--text-muted);">Candidate Experience Buckets</span>
+        <!-- ============================================================
+             4. MENTOR DIAGRAM: CANDIDATE RANKING LEADERBOARD
+        ============================================================ -->
+        <div class="card" style="padding: 22px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg); margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <h2 class="card-title" style="margin: 0; font-size: 16px; font-weight: 700;">
+                🏆 Candidate Ranking &amp; Leaderboard (Mentor Architecture)
+              </h2>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
+                Automated hiring score rank based on match percentage, technical simulation, and soft skills
+              </p>
+            </div>
+            <a href="dashboard.html" class="btn-primary" style="text-decoration: none; padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 6px;">
+              View in Dashboard &rarr;
+            </a>
           </div>
-          <div style="height: 220px; position: relative;">
-            <canvas id="exp-chart"></canvas>
+
+          <div style="overflow-x: auto;">
+            <table class="leaderboard-table" style="width: 100%; border-collapse: collapse; min-width: 750px;">
+              <thead>
+                <tr style="text-align: left;">
+                  <th style="width: 60px;">RANK</th>
+                  <th>CANDIDATE</th>
+                  <th>TARGET DISCIPLINE</th>
+                  <th>OVERALL HIRING SCORE</th>
+                  <th>STAGE CATEGORY</th>
+                  <th style="text-align: right;">ACTION</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-tbody">
+                <tr>
+                  <td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">
+                    Aggregating leaderboard rankings...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
+
       </div>
     </main>
   </div>
+
   <script src="js/theme.js"></script>
   <script src="js/api.js"></script>
   <script src="js/analytics.js"></script>

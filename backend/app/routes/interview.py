@@ -3,12 +3,12 @@ from __future__ import annotations
 """
 backend/app/routes/interview.py
 
-Voice Screening:
+Voice Screening & AI Technical Simulation:
 - Job position can be selected
 - Exactly 5 technical/career questions
-- Questions are generated based on selected job position
-- Candidate answers are evaluated
-- Each answer gets a score
+- Questions are dynamically generated with Gemini using parsed candidate skills & profile
+- Candidate answers are evaluated via Gemini
+- Each answer gets a score and adaptive follow-up
 - Next Question skips the current question
 - Stop Interview completely stops the interview
 - Score is calculated from completed answers
@@ -19,6 +19,7 @@ Voice Screening:
 import os
 import json
 import logging
+import random
 from typing import List, Dict, Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,18 +42,12 @@ router = APIRouter(tags=["Interview Assistant & ATS"])
 
 try:
     from google import genai
-
     USE_NEW_SDK = True
-
 except ImportError:
-
     try:
         import google.generativeai as genai_legacy
-
         USE_NEW_SDK = False
-
     except ImportError:
-
         USE_NEW_SDK = None
 
 
@@ -65,6 +60,7 @@ class QuestionRequest(BaseModel):
     candidate_id: Optional[str] = None
     question_type: str = "Technical Career"
     job_position: Optional[str] = None
+    candidate_skills: Optional[List[str]] = None
 
 
 class SimulationMessage(BaseModel):
@@ -73,6 +69,8 @@ class SimulationMessage(BaseModel):
     current_question: Optional[str] = None
     question_number: int = 1
     total_questions: int = 5
+    target_role: Optional[str] = None
+    candidate_skills: Optional[List[str]] = None
     history: List[Dict[str, Any]] = Field(default_factory=list)
 
 
@@ -93,11 +91,10 @@ class StatusUpdate(BaseModel):
 
 
 # ============================================================
-# Generic Technical / Career Questions
+# Generic Technical / Career Questions (Fallback)
 # ============================================================
 
 TECHNICAL_CAREER_QUESTIONS = [
-
     {
         "id": 1,
         "question": (
@@ -108,7 +105,6 @@ TECHNICAL_CAREER_QUESTIONS = [
         "type": "Technical - Project Experience",
         "estimated_time": "3-5 min response",
     },
-
     {
         "id": 2,
         "question": (
@@ -118,7 +114,6 @@ TECHNICAL_CAREER_QUESTIONS = [
         "type": "Technical - Database",
         "estimated_time": "3-5 min response",
     },
-
     {
         "id": 3,
         "question": (
@@ -129,7 +124,6 @@ TECHNICAL_CAREER_QUESTIONS = [
         "type": "Technical - API Development",
         "estimated_time": "3-5 min response",
     },
-
     {
         "id": 4,
         "question": (
@@ -140,7 +134,6 @@ TECHNICAL_CAREER_QUESTIONS = [
         "type": "Technical - Performance",
         "estimated_time": "3-5 min response",
     },
-
     {
         "id": 5,
         "question": (
@@ -151,18 +144,15 @@ TECHNICAL_CAREER_QUESTIONS = [
         "type": "Technical - Career",
         "estimated_time": "3-5 min response",
     },
-
 ]
 
 
 # ============================================================
-# POSITION-SPECIFIC QUESTION BANK
+# POSITION-SPECIFIC QUESTION BANK (Fallback only if Gemini fails)
 # ============================================================
 
 POSITION_QUESTION_BANK = {
-
     "python developer": [
-
         {
             "id": 1,
             "question": (
@@ -211,11 +201,8 @@ POSITION_QUESTION_BANK = {
             "type": "Python - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "java developer": [
-
         {
             "id": 1,
             "question": (
@@ -263,11 +250,8 @@ POSITION_QUESTION_BANK = {
             "type": "Java - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "frontend developer": [
-
         {
             "id": 1,
             "question": (
@@ -316,11 +300,8 @@ POSITION_QUESTION_BANK = {
             "type": "Frontend - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "react developer": [
-
         {
             "id": 1,
             "question": (
@@ -366,11 +347,8 @@ POSITION_QUESTION_BANK = {
             "type": "React - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "backend developer": [
-
         {
             "id": 1,
             "question": (
@@ -416,11 +394,8 @@ POSITION_QUESTION_BANK = {
             "type": "Backend - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "data scientist": [
-
         {
             "id": 1,
             "question": (
@@ -466,11 +441,8 @@ POSITION_QUESTION_BANK = {
             "type": "Data Science - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "devops engineer": [
-
         {
             "id": 1,
             "question": (
@@ -516,11 +488,8 @@ POSITION_QUESTION_BANK = {
             "type": "DevOps - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
     "sql developer": [
-
         {
             "id": 1,
             "question": (
@@ -566,297 +535,148 @@ POSITION_QUESTION_BANK = {
             "type": "SQL - Project",
             "estimated_time": "3-5 min response",
         },
-
     ],
-
 }
 
 
 # ============================================================
-# Position Normalization
+# Helper Functions & Parsers
 # ============================================================
 
 def normalize_job_position(job_position: str) -> str:
-
-    position = (
-        job_position
-        .strip()
-        .lower()
-    )
-
-    position = " ".join(
-        position.split()
-    )
-
-    return position
+    return " ".join(job_position.strip().lower().split())
 
 
-# ============================================================
-# Get Position-Specific Questions
-# ============================================================
+def extract_skills_list(candidate_skills_raw: Any) -> List[str]:
+    if not candidate_skills_raw:
+        return []
+    if isinstance(candidate_skills_raw, list):
+        skills = []
+        for item in candidate_skills_raw:
+            if isinstance(item, dict):
+                skills.append(item.get("name") or item.get("skill") or "")
+            else:
+                skills.append(str(item))
+        return [s.strip() for s in skills if s.strip()]
+    if isinstance(candidate_skills_raw, str):
+        try:
+            parsed = json.loads(candidate_skills_raw)
+            return extract_skills_list(parsed)
+        except Exception:
+            return [s.strip() for s in candidate_skills_raw.split(",") if s.strip()]
+    return []
 
-def get_position_question_bank(
-    job_position: str,
-) -> Optional[List[Dict[str, Any]]]:
 
-    position = normalize_job_position(
-        job_position
-    )
+def get_position_question_bank(job_position: str) -> Optional[List[Dict[str, Any]]]:
+    position = normalize_job_position(job_position)
 
     if position in POSITION_QUESTION_BANK:
-
-        return POSITION_QUESTION_BANK[
-            position
-        ]
-
-    # --------------------------------------------------------
-    # Match common variations
-    # --------------------------------------------------------
+        return POSITION_QUESTION_BANK[position]
 
     aliases = {
-
         "python": "python developer",
         "python programmer": "python developer",
         "python development": "python developer",
-
         "java": "java developer",
         "java programmer": "java developer",
         "java development": "java developer",
-
         "frontend": "frontend developer",
         "front end developer": "frontend developer",
         "front-end developer": "frontend developer",
-
         "react": "react developer",
         "react.js developer": "react developer",
-
         "backend": "backend developer",
         "back end developer": "backend developer",
         "back-end developer": "backend developer",
-
         "data scientist": "data scientist",
         "data science": "data scientist",
-
         "devops": "devops engineer",
         "dev ops engineer": "devops engineer",
-
         "sql": "sql developer",
         "sql programmer": "sql developer",
-
     }
 
     if position in aliases:
-
-        key = aliases[position]
-
-        return POSITION_QUESTION_BANK.get(
-            key
-        )
-
-    # --------------------------------------------------------
-    # Partial matching
-    # --------------------------------------------------------
+        return POSITION_QUESTION_BANK.get(aliases[position])
 
     if "python" in position:
-        return POSITION_QUESTION_BANK[
-            "python developer"
-        ]
-
+        return POSITION_QUESTION_BANK["python developer"]
     if "java" in position:
-        return POSITION_QUESTION_BANK[
-            "java developer"
-        ]
-
+        return POSITION_QUESTION_BANK["java developer"]
     if "react" in position:
-        return POSITION_QUESTION_BANK[
-            "react developer"
-        ]
-
-    if (
-        "frontend" in position
-        or "front end" in position
-        or "front-end" in position
-    ):
-        return POSITION_QUESTION_BANK[
-            "frontend developer"
-        ]
-
-    if (
-        "backend" in position
-        or "back end" in position
-        or "back-end" in position
-    ):
-        return POSITION_QUESTION_BANK[
-            "backend developer"
-        ]
-
-    if (
-        "data scientist" in position
-        or "data science" in position
-    ):
-        return POSITION_QUESTION_BANK[
-            "data scientist"
-        ]
-
+        return POSITION_QUESTION_BANK["react developer"]
+    if "frontend" in position or "front end" in position or "front-end" in position:
+        return POSITION_QUESTION_BANK["frontend developer"]
+    if "backend" in position or "back end" in position or "back-end" in position:
+        return POSITION_QUESTION_BANK["backend developer"]
+    if "data scientist" in position or "data science" in position:
+        return POSITION_QUESTION_BANK["data scientist"]
     if "devops" in position:
-        return POSITION_QUESTION_BANK[
-            "devops engineer"
-        ]
-
+        return POSITION_QUESTION_BANK["devops engineer"]
     if "sql" in position:
-        return POSITION_QUESTION_BANK[
-            "sql developer"
-        ]
+        return POSITION_QUESTION_BANK["sql developer"]
 
     return None
 
 
-# ============================================================
-# Gemini Helper
-# ============================================================
-
 def call_gemini_or_fallback(prompt: str) -> Optional[str]:
-
     settings = get_settings()
-
-    api_key = (
-        settings.GEMINI_API_KEY.strip()
-        if settings.GEMINI_API_KEY
-        else ""
-    )
+    api_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
 
     if not api_key or api_key == "YOUR_GEMINI_API_KEY_HERE":
         return None
 
     try:
-
-        # ----------------------------------------------------
-        # New SDK
-        # ----------------------------------------------------
-
         if USE_NEW_SDK is True:
-
-            client = genai.Client(
-                api_key=api_key
-            )
-
+            client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
                 model="gemini-1.5-flash",
                 contents=prompt,
             )
-
-            return (
-                response.text.strip()
-                if response and response.text
-                else None
-            )
-
-        # ----------------------------------------------------
-        # Legacy SDK
-        # ----------------------------------------------------
+            return response.text.strip() if response and response.text else None
 
         elif USE_NEW_SDK is False:
-
-            genai_legacy.configure(
-                api_key=api_key
-            )
-
-            model = genai_legacy.GenerativeModel(
-                "gemini-1.5-flash"
-            )
-
-            response = model.generate_content(
-                prompt
-            )
-
-            return (
-                response.text.strip()
-                if response and response.text
-                else None
-            )
+            genai_legacy.configure(api_key=api_key)
+            model = genai_legacy.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            return response.text.strip() if response and response.text else None
 
     except Exception as e:
-
-        logger.warning(
-            "Gemini API error: %s. Using fallback.",
-            e
-        )
-
+        logger.warning("Gemini API error: %s. Using fallback.", e)
         return None
 
     return None
 
 
-# ============================================================
-# JSON Cleaner
-# ============================================================
-
 def clean_json_response(raw_text: str) -> str:
-
     cleaned = raw_text.strip()
-
-    cleaned = cleaned.replace(
-        "```json",
-        ""
-    )
-
-    cleaned = cleaned.replace(
-        "```JSON",
-        ""
-    )
-
-    cleaned = cleaned.replace(
-        "```",
-        ""
-    )
-
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```JSON"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
     return cleaned.strip()
 
 
-# ============================================================
-# Question Duplicate Checker
-# ============================================================
-
 def normalize_question(question: str) -> str:
-
-    return " ".join(
-        question
-        .strip()
-        .lower()
-        .split()
-    )
+    return " ".join(question.strip().lower().split())
 
 
-def questions_are_unique(
-    questions: List[Dict[str, Any]]
-) -> bool:
-
+def questions_are_unique(questions: List[Dict[str, Any]]) -> bool:
     seen = set()
-
     for item in questions:
-
-        question = normalize_question(
-            str(
-                item.get(
-                    "question",
-                    ""
-                )
-            )
-        )
-
-        if not question:
+        question = normalize_question(str(item.get("question", "")))
+        if not question or question in seen:
             return False
-
-        if question in seen:
-            return False
-
         seen.add(question)
-
     return True
 
 
 # ============================================================
-# Generate Questions
+# Generate Questions via Gemini (Profile & Skills Driven)
 # ============================================================
 
 @router.post("/interview/generate-questions")
@@ -864,95 +684,129 @@ def generate_interview_questions(
     req: QuestionRequest,
     db: Session = Depends(get_db),
 ):
-
     candidate = None
-
-    # --------------------------------------------------------
-    # Get candidate if supplied
-    # --------------------------------------------------------
-
     if req.candidate_id:
+        candidate = db.query(Candidate).filter(Candidate.id == req.candidate_id).first()
+        if candidate:
+            candidate.voice_screening_status = "NOT COMPLETED"
+            db.commit()
+            db.refresh(candidate)
 
-        candidate = (
-            db.query(Candidate)
-            .filter(
-                Candidate.id == req.candidate_id
-            )
-            .first()
-        )
+    candidate_name = candidate.name if candidate and candidate.name else "Candidate"
+    parsed_skills = extract_skills_list(candidate.skills if candidate else None)
+    if not parsed_skills and req.candidate_skills:
+        parsed_skills = req.candidate_skills
 
-        if not candidate:
+    job_position = req.job_position.strip() if req.job_position else "General Technical Role"
+    skills_context = ", ".join(parsed_skills) if parsed_skills else "Full Stack Development, APIs, Databases"
+    experience_context = getattr(candidate, "experience", None) or getattr(candidate, "summary", None) or "Software Professional"
+    session_seed = random.randint(1000, 99999)
 
-            raise HTTPException(
-                status_code=404,
-                detail="Candidate not found",
-            )
+    # 1. Primary Generation: Contextual Gemini Prompt
+    prompt = f"""
+You are an expert technical interviewer and systems architect.
 
-        # ----------------------------------------------------
-        # Start a new Voice Screening
-        # ----------------------------------------------------
+Candidate Profile:
+- Candidate Name: {candidate_name}
+- Candidate Parsed Resume Skills: {skills_context}
+- Professional Context: {experience_context}
+- Selected Job Position: {job_position}
+- Randomization Session Seed: {session_seed}
 
-        candidate.voice_screening_status = "NOT COMPLETED"
+IMPORTANT:
+1. Generate EXACTLY 5 DIFFERENT technical interview questions specifically customized for this candidate applying for {job_position}.
+2. Bridge the candidate's verified skills ({skills_context}) with real-world requirements of a {job_position}.
+3. DO NOT use generic questions that could be asked to every software developer (e.g. 'Tell me about yourself', 'What are your strengths').
+4. The 5 questions must cover:
+   - Question 1: System architecture or practical project design using their verified skills.
+   - Question 2: Deep technical concepts, language internals, or performance optimization.
+   - Question 3: API design, data validation, or database schema modeling.
+   - Question 4: Difficult debugging in production, crisis resolution, or scalability bottlenecks.
+   - Question 5: Engineering best practices, automated testing, or production security readiness.
+5. Every question must be completely unique, fresh, and not repeat previous sessions.
 
-        db.commit()
-
-        db.refresh(candidate)
-
-    # --------------------------------------------------------
-    # Candidate information
-    # --------------------------------------------------------
-
-    candidate_name = (
-        candidate.name
-        if candidate
-        else "Candidate"
-    )
-
-    candidate_skills = (
-        candidate.skills
-        if candidate
-        else []
-    )
-
-    # --------------------------------------------------------
-    # Selected Job Position
-    # --------------------------------------------------------
-
-    job_position = (
-        req.job_position.strip()
-        if req.job_position
-        else "General Technical Role"
-    )
-
-    normalized_position = normalize_job_position(
-        job_position
-    )
-
-    candidate_info = f"""
-Candidate Name:
-{candidate_name}
-
-Candidate Skills:
-{candidate_skills}
-
-Selected Job Position:
-{job_position}
+Return ONLY valid JSON.
+Format:
+[
+    {{
+        "id": 1,
+        "question": "Architecture question connecting {skills_context} with {job_position}",
+        "type": "Architecture & Projects",
+        "estimated_time": "3-5 min response"
+    }},
+    {{
+        "id": 2,
+        "question": "Deep technical question related to their tools and language",
+        "type": "Technical Depth",
+        "estimated_time": "3-5 min response"
+    }},
+    {{
+        "id": 3,
+        "question": "API development or database design question",
+        "type": "APIs & Databases",
+        "estimated_time": "3-5 min response"
+    }},
+    {{
+        "id": 4,
+        "question": "Debugging or scalability problem solving scenario",
+        "type": "Problem Solving & Scaling",
+        "estimated_time": "3-5 min response"
+    }},
+    {{
+        "id": 5,
+        "question": "Production readiness, testing, or security question",
+        "type": "Production Engineering",
+        "estimated_time": "3-5 min response"
+    }}
+]
 """
 
-    # ========================================================
-    # CHECK POSITION-SPECIFIC QUESTION BANK FIRST
-    # ========================================================
+    ai_raw = call_gemini_or_fallback(prompt)
 
-    position_questions = get_position_question_bank(
-        normalized_position
-    )
+    if ai_raw:
+        try:
+            cleaned = clean_json_response(ai_raw)
+            questions = json.loads(cleaned)
+
+            if isinstance(questions, list):
+                valid_questions = []
+                for index, item in enumerate(questions[:5]):
+                    if not isinstance(item, dict):
+                        continue
+                    question_text = str(item.get("question", "")).strip()
+                    if not question_text:
+                        continue
+                    valid_questions.append({
+                        "id": index + 1,
+                        "question": question_text,
+                        "type": item.get("type", "Technical"),
+                        "estimated_time": item.get("estimated_time", "3-5 min response"),
+                    })
+
+                if len(valid_questions) == 5 and questions_are_unique(valid_questions):
+                    return {
+                        "success": True,
+                        "candidate_name": candidate_name,
+                        "job_position": job_position,
+                        "candidate_skills": parsed_skills,
+                        "questions": valid_questions,
+                        "total_questions": 5,
+                        "source": "Gemini AI (Profile-Tailored)",
+                    }
+        except Exception as e:
+            logger.warning("Gemini question parsing failed: %s. Using fallback.", e)
+
+    # 2. Secondary Fallback: Randomized Position Bank
+    normalized_position = normalize_job_position(job_position)
+    position_questions = get_position_question_bank(normalized_position)
 
     if position_questions:
-
+        shuffled_pool = random.sample(position_questions, min(len(position_questions), 5))
         return {
             "success": True,
             "candidate_name": candidate_name,
             "job_position": job_position,
+            "candidate_skills": parsed_skills,
             "questions": [
                 {
                     "id": index + 1,
@@ -960,336 +814,60 @@ Selected Job Position:
                     "type": item["type"],
                     "estimated_time": item["estimated_time"],
                 }
-                for index, item in enumerate(
-                    position_questions[:5]
-                )
+                for index, item in enumerate(shuffled_pool)
             ],
             "total_questions": 5,
-            "source": "Position-Specific Question Bank",
+            "source": "Position-Specific Bank (Shuffled Fallback)",
         }
 
-    # ========================================================
-    # Gemini Prompt For Other Job Positions
-    # ========================================================
-
-    prompt = f"""
-You are an expert technical interviewer.
-
-{candidate_info}
-
-The selected job position is:
-
-{job_position}
-
-IMPORTANT:
-The selected job position is the PRIMARY requirement for generating
-the interview questions.
-
-Generate exactly 5 DIFFERENT technical interview questions specifically
-for the selected job position.
-
-The questions MUST be strongly related to the exact selected job title.
-
-DO NOT use generic questions that could be asked to every software
-developer.
-
-DO NOT use the same question structure repeatedly.
-
-DO NOT generate generic questions about:
-- generic technical projects
-- generic databases
-- generic REST APIs
-- generic scalability
-- generic career plans
-
-unless those subjects are specifically important to the selected role.
-
-The questions must test technologies, responsibilities, tools,
-technical concepts, practical work, debugging, architecture,
-testing, deployment, problem solving, or other responsibilities
-specific to:
-
-{job_position}
-
-Candidate skills should be considered when appropriate, but the
-selected job position MUST remain the main focus.
-
-Every question must be different from the other questions.
-
-Return ONLY valid JSON.
-
-Use exactly this format:
-
-[
-    {{
-        "id": 1,
-        "question": "Question specifically related to {job_position}",
-        "type": "Technical",
-        "estimated_time": "3-5 min response"
-    }},
-    {{
-        "id": 2,
-        "question": "Different question specifically related to {job_position}",
-        "type": "Technical",
-        "estimated_time": "3-5 min response"
-    }},
-    {{
-        "id": 3,
-        "question": "Different question specifically related to {job_position}",
-        "type": "Technical",
-        "estimated_time": "3-5 min response"
-    }},
-    {{
-        "id": 4,
-        "question": "Different question specifically related to {job_position}",
-        "type": "Technical",
-        "estimated_time": "3-5 min response"
-    }},
-    {{
-        "id": 5,
-        "question": "Different question specifically related to {job_position}",
-        "type": "Technical",
-        "estimated_time": "3-5 min response"
-    }}
-]
-"""
-
-    # ========================================================
-    # Try Gemini
-    # ========================================================
-
-    ai_raw = call_gemini_or_fallback(
-        prompt
-    )
-
-    if ai_raw:
-
-        try:
-
-            cleaned = clean_json_response(
-                ai_raw
-            )
-
-            questions = json.loads(
-                cleaned
-            )
-
-            if isinstance(
-                questions,
-                list
-            ):
-
-                valid_questions = []
-
-                for index, item in enumerate(
-                    questions[:5]
-                ):
-
-                    if not isinstance(
-                        item,
-                        dict
-                    ):
-                        continue
-
-                    question_text = str(
-                        item.get(
-                            "question",
-                            ""
-                        )
-                    ).strip()
-
-                    if not question_text:
-                        continue
-
-                    valid_questions.append(
-                        {
-                            "id": index + 1,
-                            "question": question_text,
-                            "type": item.get(
-                                "type",
-                                "Technical"
-                            ),
-                            "estimated_time": item.get(
-                                "estimated_time",
-                                "3-5 min response"
-                            ),
-                        }
-                    )
-
-                if (
-                    len(valid_questions) == 5
-                    and questions_are_unique(
-                        valid_questions
-                    )
-                ):
-
-                    return {
-                        "success": True,
-                        "candidate_name": candidate_name,
-                        "job_position": job_position,
-                        "questions": valid_questions,
-                        "total_questions": 5,
-                        "source": "Gemini AI",
-                    }
-
-        except Exception as e:
-
-            logger.warning(
-                "Gemini question parsing failed: %s",
-                e
-            )
-
-    # ========================================================
-    # Position-Specific Fallback Questions
-    # ========================================================
-
-    fallback_questions = [
-
-        {
-            "id": 1,
-            "question": (
-                f"What are the most important technical concepts "
-                f"required for a {job_position}, and how would you "
-                f"apply them in a real-world project?"
-            ),
-            "type": "Technical - Role Knowledge",
-            "estimated_time": "3-5 min response",
-        },
-
-        {
-            "id": 2,
-            "question": (
-                f"What tools, technologies, or frameworks would you "
-                f"normally use as a {job_position}, and why would you "
-                f"choose them?"
-            ),
-            "type": "Technical - Technologies",
-            "estimated_time": "3-5 min response",
-        },
-
-        {
-            "id": 3,
-            "question": (
-                f"Describe a difficult technical problem that could "
-                f"occur in a {job_position} role and explain how you "
-                f"would investigate and solve it."
-            ),
-            "type": "Technical - Problem Solving",
-            "estimated_time": "3-5 min response",
-        },
-
-        {
-            "id": 4,
-            "question": (
-                f"How would you test, debug, and improve the reliability "
-                f"of a system or solution developed for a {job_position} role?"
-            ),
-            "type": "Technical - Testing and Reliability",
-            "estimated_time": "3-5 min response",
-        },
-
-        {
-            "id": 5,
-            "question": (
-                f"Describe a project or practical task relevant to the "
-                f"{job_position} role and explain the technical decisions "
-                f"you would make to complete it successfully."
-            ),
-            "type": "Technical - Practical Experience",
-            "estimated_time": "3-5 min response",
-        },
-
-    ]
-
+    # 3. Tertiary Fallback: Generic Bank
+    shuffled_generic = random.sample(TECHNICAL_CAREER_QUESTIONS, min(len(TECHNICAL_CAREER_QUESTIONS), 5))
     return {
         "success": True,
         "candidate_name": candidate_name,
         "job_position": job_position,
-        "questions": fallback_questions,
+        "candidate_skills": parsed_skills,
+        "questions": [
+            {
+                "id": index + 1,
+                "question": item["question"],
+                "type": item["type"],
+                "estimated_time": item["estimated_time"],
+            }
+            for index, item in enumerate(shuffled_generic)
+        ],
         "total_questions": 5,
-        "source": "Copilot Engine",
+        "source": "Copilot Engine (Fallback)",
     }
 
 
 # ============================================================
-# Get Used Questions
+# Used Question Tracking & Helpers
 # ============================================================
 
-def get_used_questions(
-    history: List[Dict[str, Any]],
-    current_question: str,
-) -> set:
-
+def get_used_questions(history: List[Dict[str, Any]], current_question: str) -> set:
     used = set()
-
     for item in history:
-
-        if not isinstance(
-            item,
-            dict
-        ):
+        if not isinstance(item, dict):
             continue
-
-        possible_questions = [
-            item.get("question"),
-            item.get("current_question"),
-        ]
-
-        for question in possible_questions:
-
-            if isinstance(
-                question,
-                str
-            ):
-
-                question = (
-                    question
-                    .strip()
-                    .lower()
-                )
-
-                if question:
-                    used.add(question)
-
+        for q_val in [item.get("question"), item.get("current_question")]:
+            if isinstance(q_val, str):
+                normalized = q_val.strip().lower()
+                if normalized:
+                    used.add(normalized)
     if current_question:
-
-        used.add(
-            current_question
-            .strip()
-            .lower()
-        )
-
+        used.add(current_question.strip().lower())
     return used
 
 
-# ============================================================
-# Fallback Next Question
-# ============================================================
-
-def find_next_question(
-    current_question: str,
-    history: List[Dict[str, Any]],
-) -> str:
-
-    used = get_used_questions(
-        history,
-        current_question
-    )
-
+def find_next_question(current_question: str, history: List[Dict[str, Any]]) -> str:
+    used = get_used_questions(history, current_question)
     for item in TECHNICAL_CAREER_QUESTIONS:
-
         question = item["question"]
-
         if question.lower() not in used:
-
             return question
-
     return ""
 
-
-# ============================================================
-# Generate Position-Specific Next Question
-# ============================================================
 
 def generate_next_position_question(
     candidate_name: str,
@@ -1297,43 +875,23 @@ def generate_next_position_question(
     current_question: str,
     history: List[Dict[str, Any]],
     question_number: int,
+    target_role: str = "Software Engineer",
 ) -> str:
-
     used_questions = []
-
     for item in history:
-
-        if not isinstance(
-            item,
-            dict
-        ):
+        if not isinstance(item, dict):
             continue
-
-        question = (
-            item.get("question")
-            or item.get("current_question")
-            or ""
-        )
-
-        if question:
-
-            used_questions.append(
-                str(question).strip()
-            )
+        q = item.get("question") or item.get("current_question") or ""
+        if q:
+            used_questions.append(str(q).strip())
 
     if current_question:
+        used_questions.append(current_question.strip())
 
-        used_questions.append(
-            current_question.strip()
-        )
-
-    used_text = "\n".join(
-        f"- {question}"
-        for question in used_questions
-    )
+    used_text = "\n".join(f"- {q}" for q in used_questions)
 
     prompt = f"""
-You are conducting a technical interview.
+You are conducting a technical interview for a {target_role} position.
 
 Candidate:
 {candidate_name}
@@ -1352,262 +910,91 @@ The interview is currently moving to question {question_number} of 5.
 Generate ONE new technical interview question.
 
 The new question MUST:
-
 - Be different from every question already asked.
-- Be relevant to the candidate's technical skills.
+- Be relevant to the candidate's technical skills ({candidate_skills}) and the role ({target_role}).
 - Continue naturally from the current interview.
-- Focus on technical knowledge, practical experience,
-  architecture, APIs, databases, testing, performance,
-  deployment, or other technical areas.
+- Focus on practical work, architecture, APIs, databases, testing, performance, or deployment.
 - Avoid generic greetings.
-- Do not ask "Tell me about yourself."
 - Do not repeat an earlier question.
 - Do not include an answer.
 - Return ONLY the question text.
-
-Use the current question and previous questions to infer
-the candidate's selected technical role and keep the new
-question relevant to that role.
 """
 
-    ai_raw = call_gemini_or_fallback(
-        prompt
-    )
-
+    ai_raw = call_gemini_or_fallback(prompt)
     if ai_raw:
-
-        question = (
-            clean_json_response(
-                ai_raw
-            )
-            .strip()
-            .strip('"')
-        )
-
-        if (
-            question
-            and question.lower()
-            not in {
-                item.lower()
-                for item in used_questions
-            }
-        ):
-
+        question = clean_json_response(ai_raw).strip().strip('"')
+        if question and question.lower() not in {item.lower() for item in used_questions}:
             return question
 
     return ""
 
 
-# ============================================================
-# Fallback Score
-# ============================================================
-
-def calculate_fallback_score(
-    answer: str,
-    current_question: str,
-    candidate_skills: Any,
-) -> float:
-
+def calculate_fallback_score(answer: str, current_question: str, candidate_skills: Any) -> float:
     text = answer.lower()
-
     words = text.split()
-
     word_count = len(words)
 
-    # --------------------------------------------------------
-    # Base score
-    # --------------------------------------------------------
-
     if word_count < 5:
-
         score = 30
-
     elif word_count < 10:
-
         score = 45
-
     elif word_count < 20:
-
         score = 60
-
     elif word_count < 35:
-
         score = 72
-
     elif word_count < 50:
-
         score = 82
-
     else:
-
         score = 88
 
-    # --------------------------------------------------------
-    # Technical keywords
-    # --------------------------------------------------------
-
     technical_keywords = [
-
-        "python",
-        "java",
-        "javascript",
-        "fastapi",
-        "api",
-        "rest",
-        "database",
-        "mysql",
-        "sql",
-        "backend",
-        "frontend",
-        "html",
-        "css",
-        "react",
-        "authentication",
-        "authorization",
-        "security",
-        "testing",
-        "deployment",
-        "performance",
-        "scalability",
-        "optimization",
-        "algorithm",
-        "architecture",
-        "validation",
-        "exception",
-        "cloud",
-        "git",
-        "github",
-        "docker",
-        "aws",
-        "azure",
-        "machine learning",
-        "ai",
-        "model",
-
+        "python", "java", "javascript", "fastapi", "api", "rest", "database",
+        "mysql", "sql", "backend", "frontend", "html", "css", "react",
+        "authentication", "authorization", "security", "testing", "deployment",
+        "performance", "scalability", "optimization", "algorithm", "architecture",
+        "validation", "exception", "cloud", "git", "github", "docker", "aws",
+        "azure", "machine learning", "ai", "model"
     ]
 
-    matches = sum(
-        1
-        for keyword in technical_keywords
-        if keyword in text
-    )
+    matches = sum(1 for keyword in technical_keywords if keyword in text)
+    score += min(matches * 2, 10)
 
-    score += min(
-        matches * 2,
-        10
-    )
-
-    # --------------------------------------------------------
-    # Candidate skill match
-    # --------------------------------------------------------
-
-    if isinstance(
-        candidate_skills,
-        list
-    ):
-
+    if isinstance(candidate_skills, list):
         for skill in candidate_skills:
-
-            if isinstance(
-                skill,
-                dict
-            ):
-
-                skill_name = str(
-                    skill.get(
-                        "name",
-                        ""
-                    )
-                ).lower()
-
+            if isinstance(skill, dict):
+                skill_name = str(skill.get("name", "")).lower()
             else:
-
-                skill_name = str(
-                    skill
-                ).lower()
-
-            if (
-                skill_name
-                and skill_name in text
-            ):
-
+                skill_name = str(skill).lower()
+            if skill_name and skill_name in text:
                 score += 2
 
-    return round(
-        max(
-            0,
-            min(
-                100,
-                score
-            )
-        ),
-        2
-    )
+    return round(max(0, min(100, score)), 2)
 
-
-# ============================================================
-# Generate Overall Interview Feedback
-# ============================================================
 
 def generate_overall_feedback(
     scores: List[float],
     history: List[Dict[str, Any]],
     candidate_name: str,
 ) -> Dict[str, Any]:
-
     valid_scores = []
-
     for score in scores:
-
         try:
-
             value = float(score)
-
-            value = max(
-                0,
-                min(
-                    100,
-                    value
-                )
-            )
-
-            valid_scores.append(value)
-
-        except (
-            ValueError,
-            TypeError,
-        ):
-
+            valid_scores.append(max(0, min(100, value)))
+        except (ValueError, TypeError):
             continue
 
-    if valid_scores:
-
-        final_score = round(
-            sum(valid_scores) / len(valid_scores),
-            2
-        )
-
-    else:
-
-        final_score = 0
-
-    # ========================================================
-    # Try Gemini for overall feedback
-    # ========================================================
+    final_score = round(sum(valid_scores) / len(valid_scores), 2) if valid_scores else 0
 
     history_text = ""
-
     for item in history:
-
         if not isinstance(item, dict):
             continue
-
         history_text += (
             f"\nQuestion: {item.get('question', '')}"
             f"\nAnswer: {item.get('user', '')}"
             f"\nScore: {item.get('score', 0)}"
-            f"\nFeedback: {item.get('feedback', '')}"
-            f"\n"
+            f"\nFeedback: {item.get('feedback', '')}\n"
         )
 
     prompt = f"""
@@ -1626,28 +1013,9 @@ Interview Details:
 {history_text}
 
 Provide an overall professional interview evaluation.
-
-If the candidate performed very well:
-- Clearly mention their strengths.
-- Mention their technical capability.
-- Give positive professional feedback.
-- Suggest how they can continue improving.
-
-If the candidate performed at an average level:
-- Mention what they did well.
-- Identify technical areas that need improvement.
-- Give practical suggestions.
-
-If the candidate performed poorly:
-- Clearly explain the weak areas.
-- Suggest what technical concepts they should improve.
-- Recommend practical ways to improve.
-- Keep the feedback constructive and professional.
-
 Return ONLY valid JSON.
 
 Format:
-
 {{
     "overall_feedback": "Professional overall interview feedback.",
     "strengths": [
@@ -1666,159 +1034,39 @@ Format:
 """
 
     ai_raw = call_gemini_or_fallback(prompt)
-
     if ai_raw:
-
         try:
-
-            result = json.loads(
-                clean_json_response(
-                    ai_raw
-                )
-            )
-
-            if isinstance(
-                result,
-                dict
-            ):
-
+            result = json.loads(clean_json_response(ai_raw))
+            if isinstance(result, dict):
                 return {
-                    "overall_feedback": result.get(
-                        "overall_feedback",
-                        ""
-                    ),
-                    "strengths": result.get(
-                        "strengths",
-                        []
-                    ),
-                    "areas_to_improve": result.get(
-                        "areas_to_improve",
-                        []
-                    ),
-                    "career_advice": result.get(
-                        "career_advice",
-                        []
-                    ),
+                    "overall_feedback": result.get("overall_feedback", ""),
+                    "strengths": result.get("strengths", []),
+                    "areas_to_improve": result.get("areas_to_improve", []),
+                    "career_advice": result.get("career_advice", []),
                 }
-
         except Exception as e:
-
-            logger.warning(
-                "Overall feedback parsing failed: %s",
-                e
-            )
-
-    # ========================================================
-    # Local fallback feedback
-    # ========================================================
+            logger.warning("Overall feedback parsing failed: %s", e)
 
     if final_score >= 85:
-
-        overall_feedback = (
-            "Excellent interview performance. "
-            "The candidate demonstrated strong technical "
-            "knowledge, practical understanding, and good "
-            "communication. The candidate appears well "
-            "prepared for technical responsibilities."
-        )
-
-        strengths = [
-            "Strong technical understanding.",
-            "Good practical problem-solving ability.",
-            "Clear and relevant answers.",
-            "Good potential for technical roles.",
-        ]
-
-        areas_to_improve = [
-            "Continue learning advanced concepts.",
-            "Keep building real-world project experience.",
-        ]
-
-        career_advice = [
-            "Work on advanced projects to strengthen your portfolio.",
-            "Continue improving system design and problem-solving skills.",
-        ]
-
+        overall_feedback = "Excellent interview performance with strong technical depth."
+        strengths = ["Strong technical understanding.", "Good problem solving."]
+        areas_to_improve = ["Continue learning advanced system architecture."]
+        career_advice = ["Work on advanced production systems."]
     elif final_score >= 70:
-
-        overall_feedback = (
-            "Good interview performance. "
-            "The candidate demonstrated a solid technical "
-            "foundation and was able to explain relevant "
-            "technical concepts. Some areas can be improved "
-            "with deeper practical experience."
-        )
-
-        strengths = [
-            "Good technical foundation.",
-            "Relevant technical knowledge.",
-            "Able to explain practical concepts.",
-        ]
-
-        areas_to_improve = [
-            "Improve technical depth.",
-            "Practice explaining solutions step by step.",
-            "Gain more real-world project experience.",
-        ]
-
-        career_advice = [
-            "Build more practical projects.",
-            "Practice technical interview questions regularly.",
-        ]
-
+        overall_feedback = "Good interview performance with solid foundations."
+        strengths = ["Solid foundation.", "Relevant technical answers."]
+        areas_to_improve = ["Deepen knowledge in system trade-offs."]
+        career_advice = ["Build more scalable projects."]
     elif final_score >= 50:
-
-        overall_feedback = (
-            "The candidate showed basic technical understanding "
-            "but needs more depth and confidence in several areas. "
-            "More hands-on practice and stronger technical "
-            "explanations would improve interview performance."
-        )
-
-        strengths = [
-            "Attempted the technical questions.",
-            "Shows basic technical understanding.",
-        ]
-
-        areas_to_improve = [
-            "Strengthen core technical concepts.",
-            "Provide more detailed technical explanations.",
-            "Practice explaining project decisions.",
-            "Improve problem-solving confidence.",
-        ]
-
-        career_advice = [
-            "Practice coding and technical problems regularly.",
-            "Build at least a few complete real-world projects.",
-            "Review database, API, backend, and system design concepts.",
-        ]
-
+        overall_feedback = "The candidate showed basic technical understanding with room for improvement."
+        strengths = ["Attempted technical questions."]
+        areas_to_improve = ["Strengthen core engineering concepts."]
+        career_advice = ["Practice technical coding and design."]
     else:
-
-        overall_feedback = (
-            "The interview performance indicates that the candidate "
-            "needs significant improvement in technical knowledge "
-            "and communication of technical concepts. More structured "
-            "learning and practical project experience are recommended."
-        )
-
-        strengths = [
-            "Made an attempt to answer the questions.",
-        ]
-
-        areas_to_improve = [
-            "Improve core programming concepts.",
-            "Strengthen database and API knowledge.",
-            "Practice technical problem solving.",
-            "Provide clearer and more complete answers.",
-        ]
-
-        career_advice = [
-            "Follow a structured technical learning plan.",
-            "Practice programming every day.",
-            "Build practical projects using your main technologies.",
-            "Take mock technical interviews before applying for jobs.",
-        ]
+        overall_feedback = "Significant improvement is recommended in foundational technical concepts."
+        strengths = ["Completed session."]
+        areas_to_improve = ["Core programming and database knowledge."]
+        career_advice = ["Follow structured programming roadmaps."]
 
     return {
         "overall_feedback": overall_feedback,
@@ -1829,7 +1077,7 @@ Format:
 
 
 # ============================================================
-# Interview Simulation
+# Dynamic Interview Simulation Turn (Evaluates & Follows Up)
 # ============================================================
 
 @router.post("/interview/simulate")
@@ -1837,79 +1085,29 @@ def simulate_interview_turn(
     msg: SimulationMessage,
     db: Session = Depends(get_db),
 ):
-
-    # ========================================================
-    # Find Candidate
-    # ========================================================
-
-    candidate = (
-        db.query(Candidate)
-        .filter(
-            Candidate.id == msg.candidate_id
-        )
-        .first()
-    )
-
+    candidate = db.query(Candidate).filter(Candidate.id == msg.candidate_id).first()
     if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
 
-        raise HTTPException(
-            status_code=404,
-            detail="Candidate not found",
-        )
-
-    candidate_name = (
-        candidate.name
-        or "Candidate"
-    )
-
-    answer = (
-        msg.user_response
-        or ""
-    ).strip()
-
-    # ========================================================
-    # IMPORTANT:
-    # Use the question supplied by the frontend.
-    #
-    # The frontend already received the complete 5-question
-    # position-specific interview at the beginning.
-    #
-    # DO NOT replace it with a generic question.
-    # ========================================================
-
-    current_question = (
-        msg.current_question
-        or ""
-    ).strip()
-
-    if not current_question:
-
-        current_question = (
-            "Please answer the selected technical interview question."
-        )
-
-    question_number = max(
-        1,
-        min(
-            msg.question_number,
-            5
-        )
-    )
-
+    candidate_name = candidate.name or "Candidate"
+    answer = (msg.user_response or "").strip()
+    current_question = (msg.current_question or "Please answer the selected technical interview question.").strip()
+    question_number = max(1, min(msg.question_number, 5))
     total_questions = 5
 
-    # ========================================================
-    # Empty answer
-    # ========================================================
+    parsed_skills = extract_skills_list(candidate.skills)
+    if not parsed_skills and msg.candidate_skills:
+        parsed_skills = msg.candidate_skills
+
+    skills_context = ", ".join(parsed_skills) if parsed_skills else "General Software Development"
+    target_role = msg.target_role or "Software Engineer"
+    is_final_turn = (question_number >= total_questions)
 
     if not answer:
-
         return {
             "success": True,
             "candidate_name": candidate_name,
-            "ai_response": (
-                "Please provide an answer to the question."
-            ),
+            "ai_response": "Please provide an answer to the question.",
             "current_question": current_question,
             "next_question": "",
             "question_number": question_number,
@@ -1923,23 +1121,14 @@ def simulate_interview_turn(
             "strengths": [],
             "technical": "No technical answer was provided.",
             "communication": "No response was provided.",
-            "improvements": [
-                "Provide a complete technical answer."
-            ],
+            "improvements": ["Provide a complete technical answer."],
         }
 
-    # ========================================================
-    # Very short answers
-    # ========================================================
-
     if len(answer.split()) < 3:
-
         return {
             "success": True,
             "candidate_name": candidate_name,
-            "ai_response": (
-                "Please provide more details about your answer."
-            ),
+            "ai_response": "Please provide more details about your answer.",
             "current_question": current_question,
             "next_question": "",
             "question_number": question_number,
@@ -1949,16 +1138,10 @@ def simulate_interview_turn(
             "completed": False,
             "answer_score": 0,
             "score": 0,
-            "feedback": (
-                "The answer was too short to evaluate."
-            ),
+            "feedback": "The answer was too short to evaluate.",
             "strengths": [],
-            "technical": (
-                "Not enough technical information."
-            ),
-            "communication": (
-                "The answer needs more explanation."
-            ),
+            "technical": "Not enough technical information.",
+            "communication": "The answer needs more explanation.",
             "improvements": [
                 "Explain your answer in more detail.",
                 "Mention the technologies used.",
@@ -1966,39 +1149,26 @@ def simulate_interview_turn(
             ],
         }
 
-    # ========================================================
-    # Conversation history
-    # ========================================================
-
     history_text = "\n".join(
-
         [
-            (
-                f"Question: {item.get('question', '')}\n"
-                f"Answer: {item.get('user', '')}"
-            )
-
-            for item in msg.history
-
-            if isinstance(
-                item,
-                dict
-            )
+            f"Question: {item.get('question', '')}\nAnswer: {item.get('user', '')}"
+            for item in msg.history if isinstance(item, dict)
         ]
     )
 
-    # ========================================================
-    # Gemini Evaluation
-    # ========================================================
+    if is_final_turn:
+        next_q_directive = "Do not generate a next question because this is the final question. Set next_question to empty string."
+    else:
+        next_q_directive = f"Generate an adaptive next Question {question_number + 1} that probes their verified skills ({skills_context}) or tests an adjacent system trade-off for a {target_role}."
 
     prompt = f"""
-You are an expert technical interviewer.
+You are an expert technical interviewer evaluating a {target_role}.
 
 Candidate:
 {candidate_name}
 
 Candidate Skills:
-{candidate.skills}
+{skills_context}
 
 Question:
 {current_question}
@@ -2012,54 +1182,15 @@ Previous Interview:
 Candidate's Latest Answer:
 {answer}
 
-Evaluate ONLY the latest answer.
+Task:
+1. Score the answer from 0 to 100 on technical correctness, depth, relevance, and communication.
+2. Provide a 1-sentence technical critique of their response.
+3. {next_q_directive}
 
-DO NOT generate a new interview question.
-
-DO NOT change the current question.
-
-Score the answer from 0 to 100.
-
-Consider:
-
-- Technical correctness
-- Relevance
-- Completeness
-- Practical understanding
-- Problem solving
-- Communication
-- Clarity
-
-A meaningful answer should be accepted even if it is not perfect.
-
-If the answer is valid:
-
-is_valid = true
-needs_retry = false
-
-If the answer is invalid:
-
-is_valid = false
-needs_retry = true
-answer_score = 0
-
-For a valid answer provide:
-
-- score
-- feedback
-- strengths
-- technical assessment
-- communication assessment
-- improvements
-
-Do NOT ask another question inside the feedback.
-
-Return ONLY JSON.
-
+Return ONLY valid JSON.
 Format:
-
 {{
-    "ai_response": "Short acknowledgement.",
+    "ai_response": "Short acknowledgement or critique of their answer.",
     "answer_score": 80,
     "feedback": "Overall answer evaluation.",
     "strengths": [
@@ -2069,55 +1200,27 @@ Format:
     "technical": "Technical assessment.",
     "communication": "Communication assessment.",
     "improvements": [
-        "Improvement 1",
-        "Improvement 2"
+        "Improvement 1"
     ],
+    "next_question": "",
     "is_valid": true,
     "needs_retry": false
 }}
 """
 
-    ai_raw = call_gemini_or_fallback(
-        prompt
-    )
-
-    # ========================================================
-    # Gemini Result
-    # ========================================================
+    ai_raw = call_gemini_or_fallback(prompt)
 
     if ai_raw:
-
         try:
-
-            result = json.loads(
-                clean_json_response(
-                    ai_raw
-                )
-            )
-
-            if isinstance(
-                result,
-                dict
-            ):
-
-                is_valid = bool(
-                    result.get(
-                        "is_valid",
-                        True
-                    )
-                )
+            result = json.loads(clean_json_response(ai_raw))
+            if isinstance(result, dict):
+                is_valid = bool(result.get("is_valid", True))
 
                 if not is_valid:
-
                     return {
                         "success": True,
                         "candidate_name": candidate_name,
-                        "ai_response": (
-                            result.get(
-                                "ai_response",
-                                "Please provide a more complete answer."
-                            )
-                        ),
+                        "ai_response": result.get("ai_response", "Please provide a more complete answer."),
                         "current_question": current_question,
                         "next_question": "",
                         "question_number": question_number,
@@ -2127,242 +1230,91 @@ Format:
                         "completed": False,
                         "answer_score": 0,
                         "score": 0,
-                        "feedback": result.get(
-                            "feedback",
-                            "The answer was not sufficient."
-                        ),
-                        "strengths": result.get(
-                            "strengths",
-                            []
-                        ),
-                        "technical": result.get(
-                            "technical",
-                            "Not enough technical information."
-                        ),
-                        "communication": result.get(
-                            "communication",
-                            "The response needs more explanation."
-                        ),
-                        "improvements": result.get(
-                            "improvements",
-                            [
-                                "Provide a complete answer."
-                            ]
-                        ),
+                        "feedback": result.get("feedback", "The answer was not sufficient."),
+                        "strengths": result.get("strengths", []),
+                        "technical": result.get("technical", "Not enough technical information."),
+                        "communication": result.get("communication", "The response needs more explanation."),
+                        "improvements": result.get("improvements", ["Provide a complete answer."]),
                     }
 
-                # ------------------------------------------------
-                # Score
-                # ------------------------------------------------
-
                 try:
-
-                    score = float(
-                        result.get(
-                            "answer_score",
-                            result.get(
-                                "score",
-                                0
-                            )
-                        )
-                    )
-
-                except (
-                    ValueError,
-                    TypeError,
-                ):
-
+                    score = float(result.get("answer_score", result.get("score", 0)))
+                except (ValueError, TypeError):
                     score = 0
 
-                score = max(
-                    0,
-                    min(
-                        100,
-                        score
-                    )
-                )
-
-                # ------------------------------------------------
-                # Completed
-                # ------------------------------------------------
-
-                completed = (
-                    question_number >= 5
-                )
-
-                # ------------------------------------------------
-                # Mark Voice Screening Completed
-                # ------------------------------------------------
+                score = max(0, min(100, score))
+                completed = is_final_turn
 
                 if completed:
-
                     candidate.voice_screening_status = "COMPLETED"
-
                     db.commit()
-
                     db.refresh(candidate)
 
-                # ------------------------------------------------
-                # IMPORTANT:
-                # Never generate a replacement question here.
-                #
-                # The frontend already has the 5 position-specific
-                # questions generated at interview start.
-                # ------------------------------------------------
+                next_q = "" if completed else str(result.get("next_question", "")).strip()
+
+                if not next_q and not completed:
+                    next_q = generate_next_position_question(
+                        candidate_name=candidate_name,
+                        candidate_skills=skills_context,
+                        current_question=current_question,
+                        history=msg.history,
+                        question_number=question_number + 1,
+                        target_role=target_role,
+                    )
 
                 return {
                     "success": True,
                     "candidate_name": candidate_name,
-                    "ai_response": result.get(
-                        "ai_response",
-                        "Thank you for your answer."
-                    ),
+                    "ai_response": result.get("ai_response", "Thank you for your answer."),
                     "current_question": current_question,
-                    "next_question": "",
+                    "next_question": next_q,
                     "question_number": question_number,
                     "total_questions": total_questions,
                     "is_valid": True,
                     "needs_retry": False,
                     "completed": completed,
-                    "answer_score": round(
-                        score,
-                        2
-                    ),
-                    "score": round(
-                        score,
-                        2
-                    ),
-                    "feedback": result.get(
-                        "feedback",
-                        "Answer evaluated successfully."
-                    ),
-                    "strengths": result.get(
-                        "strengths",
-                        []
-                    ),
-                    "technical": result.get(
-                        "technical",
-                        ""
-                    ),
-                    "communication": result.get(
-                        "communication",
-                        ""
-                    ),
-                    "improvements": result.get(
-                        "improvements",
-                        []
-                    ),
+                    "answer_score": round(score, 2),
+                    "score": round(score, 2),
+                    "feedback": result.get("feedback", "Answer evaluated successfully."),
+                    "strengths": result.get("strengths", []),
+                    "technical": result.get("technical", ""),
+                    "communication": result.get("communication", ""),
+                    "improvements": result.get("improvements", []),
                 }
-
         except Exception as e:
+            logger.warning("Gemini evaluation parsing failed: %s", e)
 
-            logger.warning(
-                "Gemini evaluation parsing failed: %s",
-                e
-            )
-
-    # ========================================================
-    # Local Fallback
-    # ========================================================
-
-    score = calculate_fallback_score(
-        answer,
-        current_question,
-        candidate.skills
-    )
-
-    completed = (
-        question_number >= 5
-    )
-
-    # --------------------------------------------------------
-    # Mark Voice Screening Completed
-    # --------------------------------------------------------
+    # Local Fallback Evaluation
+    score = calculate_fallback_score(answer, current_question, candidate.skills)
+    completed = is_final_turn
 
     if completed:
-
         candidate.voice_screening_status = "COMPLETED"
-
         db.commit()
-
         db.refresh(candidate)
 
-    # --------------------------------------------------------
-    # NO NEXT QUESTION GENERATED HERE
-    # --------------------------------------------------------
-
-    next_question = ""
-
-    if score >= 85:
-
-        feedback = (
-            "Excellent technical answer with strong "
-            "practical understanding."
+    next_question = (
+        ""
+        if completed
+        else generate_next_position_question(
+            candidate_name=candidate_name,
+            candidate_skills=skills_context,
+            current_question=current_question,
+            history=msg.history,
+            question_number=question_number + 1,
+            target_role=target_role,
         )
+    )
 
-    elif score >= 70:
+    if not next_question and not completed:
+        next_question = find_next_question(current_question, msg.history)
 
-        feedback = (
-            "Good technical answer with relevant "
-            "practical information."
-        )
-
-    elif score >= 50:
-
-        feedback = (
-            "The answer is relevant but needs "
-            "more technical depth."
-        )
-
-    else:
-
-        feedback = (
-            "The answer needs more technical "
-            "explanation and practical details."
-        )
-
-    strengths = []
-
-    if len(answer.split()) >= 20:
-
-        strengths.append(
-            "Provided a detailed response."
-        )
-
-    else:
-
-        strengths.append(
-            "Attempted to answer the question."
-        )
-
-    if any(
-        keyword in answer.lower()
-        for keyword in [
-            "python",
-            "java",
-            "api",
-            "database",
-            "sql",
-            "fastapi",
-            "backend",
-            "frontend",
-            "testing",
-            "security",
-            "performance",
-            "scalability",
-        ]
-    ):
-
-        strengths.append(
-            "Mentioned relevant technical concepts."
-        )
+    feedback = "Good technical answer with relevant practical information." if score >= 70 else "The answer is relevant but needs more technical depth."
 
     return {
         "success": True,
         "candidate_name": candidate_name,
-        "ai_response": (
-            "Thank you for your answer."
-        ),
+        "ai_response": "Thank you for your answer.",
         "current_question": current_question,
         "next_question": next_question,
         "question_number": question_number,
@@ -2373,19 +1325,10 @@ Format:
         "answer_score": score,
         "score": score,
         "feedback": feedback,
-        "strengths": strengths,
-        "technical": (
-            "The answer contains relevant "
-            "technical information."
-        ),
-        "communication": (
-            "The response is understandable, "
-            "but could be more structured."
-        ),
-        "improvements": [
-            "Explain the technical approach step by step.",
-            "Include a practical example where possible.",
-        ],
+        "strengths": ["Attempted to answer the question."],
+        "technical": "The answer contains relevant technical information.",
+        "communication": "The response is understandable, but could be more structured.",
+        "improvements": ["Explain the technical approach step by step."],
     }
 
 
@@ -2398,202 +1341,48 @@ def stop_interview(
     req: StopInterviewRequest,
     db: Session = Depends(get_db),
 ):
-
-    # --------------------------------------------------------
-    # Verify candidate
-    # --------------------------------------------------------
-
-    candidate = (
-        db.query(Candidate)
-        .filter(
-            Candidate.id == req.candidate_id
-        )
-        .first()
-    )
-
+    candidate = db.query(Candidate).filter(Candidate.id == req.candidate_id).first()
     if not candidate:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Candidate not found",
-        )
-
-    # --------------------------------------------------------
-    # Voice Screening was NOT completed
-    # --------------------------------------------------------
+        raise HTTPException(status_code=404, detail="Candidate not found")
 
     candidate.voice_screening_status = "NOT COMPLETED"
 
-    # --------------------------------------------------------
-    # Calculate completed answer scores
-    # --------------------------------------------------------
-
     valid_scores = []
-
     for score in req.scores:
-
         try:
-
-            value = float(score)
-
-            value = max(
-                0,
-                min(
-                    100,
-                    value
-                )
-            )
-
-            valid_scores.append(
-                value
-            )
-
-        except (
-            ValueError,
-            TypeError,
-        ):
-
+            val = float(score)
+            valid_scores.append(max(0, min(100, val)))
+        except (ValueError, TypeError):
             continue
 
-    # --------------------------------------------------------
-    # Final score
-    # --------------------------------------------------------
+    final_score = round(sum(valid_scores) / len(valid_scores), 2) if valid_scores else 0
+    stopped_at_question = max(1, min(req.question_number, 5))
+    answered_questions = len(valid_scores)
 
-    if valid_scores:
-
-        final_score = round(
-            sum(valid_scores)
-            / len(valid_scores),
-            2
-        )
-
-    else:
-
-        final_score = 0
-
-    # --------------------------------------------------------
-    # Determine stopped question
-    # --------------------------------------------------------
-
-    stopped_at_question = max(
-        1,
-        min(
-            req.question_number,
-            5
-        )
-    )
-
-    answered_questions = len(
-        valid_scores
-    )
-
-    # ========================================================
-    # Generate Overall Feedback
-    # ========================================================
-
-    feedback = generate_overall_feedback(
-        valid_scores,
-        [],
-        candidate.name or "Candidate"
-    )
-
-    # --------------------------------------------------------
-    # Final decision
-    # --------------------------------------------------------
-
-    if final_score >= 70:
-
-        decision = (
-            "Recommended for Shortlisting"
-        )
-
-    elif final_score >= 50:
-
-        decision = (
-            "Needs Further Review"
-        )
-
-    elif answered_questions > 0:
-
-        decision = (
-            "Not Recommended"
-        )
-
-    else:
-
-        decision = (
-            "Interview Stopped Before Evaluation"
-        )
-
-    # --------------------------------------------------------
-    # Save stopped status
-    # --------------------------------------------------------
+    feedback = generate_overall_feedback(valid_scores, [], candidate.name or "Candidate")
+    decision = "Recommended for Shortlisting" if final_score >= 70 else ("Needs Further Review" if final_score >= 50 else "Not Recommended")
 
     db.commit()
-
     db.refresh(candidate)
 
-    # --------------------------------------------------------
-    # Response
-    # --------------------------------------------------------
-
     return {
-
         "success": True,
-
         "candidate_id": candidate.id,
-
-        "candidate_name": (
-            candidate.name
-            or "Candidate"
-        ),
-
+        "candidate_name": candidate.name or "Candidate",
         "interview_stopped": True,
-
-        "stopped_at_question": (
-            stopped_at_question
-        ),
-
-        "answered_questions": (
-            answered_questions
-        ),
-
+        "stopped_at_question": stopped_at_question,
+        "answered_questions": answered_questions,
         "total_questions": 5,
-
         "scores": valid_scores,
-
         "final_score": final_score,
-
         "score": final_score,
-
         "decision": decision,
-
-        "overall_feedback": feedback[
-            "overall_feedback"
-        ],
-
-        "strengths": feedback[
-            "strengths"
-        ],
-
-        "areas_to_improve": feedback[
-            "areas_to_improve"
-        ],
-
-        "career_advice": feedback[
-            "career_advice"
-        ],
-
+        "overall_feedback": feedback["overall_feedback"],
+        "strengths": feedback["strengths"],
+        "areas_to_improve": feedback["areas_to_improve"],
+        "career_advice": feedback["career_advice"],
         "voice_screening_status": candidate.voice_screening_status,
-
-        "message": (
-            f"Interview stopped at question "
-            f"{stopped_at_question}. "
-            f"Final score based on "
-            f"{answered_questions} completed answer(s): "
-            f"{final_score}/100."
-        ),
-
+        "message": f"Interview stopped at question {stopped_at_question}. Final score: {final_score}/100.",
     }
 
 
@@ -2606,133 +1395,36 @@ def final_interview_result(
     req: FinalResultRequest,
     db: Session = Depends(get_db),
 ):
-
-    # --------------------------------------------------------
-    # Verify candidate
-    # --------------------------------------------------------
-
-    candidate = (
-        db.query(Candidate)
-        .filter(
-            Candidate.id == req.candidate_id
-        )
-        .first()
-    )
-
+    candidate = db.query(Candidate).filter(Candidate.id == req.candidate_id).first()
     if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
 
-        raise HTTPException(
-            status_code=404,
-            detail="Candidate not found",
-        )
-
-    # --------------------------------------------------------
-    # Final score from Interview Assistant
-    # --------------------------------------------------------
-
-    final_score = max(
-        0,
-        min(
-            100,
-            float(req.final_score)
-        )
-    )
-
-    valid_scores = [
-        final_score
-    ]
-
-    # --------------------------------------------------------
-    # Interview Assistant completed
-    # --------------------------------------------------------
+    final_score = max(0, min(100, float(req.final_score)))
+    valid_scores = [final_score]
 
     candidate.status = "pending"
-
     db.commit()
-
     db.refresh(candidate)
 
-    # --------------------------------------------------------
-    # Overall feedback
-    # --------------------------------------------------------
-
-    feedback = generate_overall_feedback(
-        valid_scores,
-        [],
-        candidate.name or "Candidate"
-    )
-
-    # --------------------------------------------------------
-    # Decision
-    # --------------------------------------------------------
-
-    if final_score >= 70:
-
-        decision = (
-            "Recommended for Shortlisting"
-        )
-
-    elif final_score >= 50:
-
-        decision = (
-            "Needs Further Review"
-        )
-
-    else:
-
-        decision = (
-            "Not Recommended"
-        )
-
-    # --------------------------------------------------------
-    # Final response
-    # --------------------------------------------------------
+    feedback = generate_overall_feedback(valid_scores, [], candidate.name or "Candidate")
+    decision = "Recommended for Shortlisting" if final_score >= 70 else ("Needs Further Review" if final_score >= 50 else "Not Recommended")
 
     return {
-
         "success": True,
-
         "candidate_id": candidate.id,
-
-        "candidate_name": (
-            candidate.name
-            or "Candidate"
-        ),
-
+        "candidate_name": candidate.name or "Candidate",
         "interview_completed": True,
-
         "total_questions": 5,
-
-        "answered_questions": len(
-            valid_scores
-        ),
-
+        "answered_questions": len(valid_scores),
         "scores": valid_scores,
-
         "final_score": final_score,
-
         "score": final_score,
-
         "decision": decision,
-
-        "overall_feedback": feedback[
-            "overall_feedback"
-        ],
-
-        "strengths": feedback[
-            "strengths"
-        ],
-
-        "areas_to_improve": feedback[
-            "areas_to_improve"
-        ],
-
-        "career_advice": feedback[
-            "career_advice"
-        ],
-
+        "overall_feedback": feedback["overall_feedback"],
+        "strengths": feedback["strengths"],
+        "areas_to_improve": feedback["areas_to_improve"],
+        "career_advice": feedback["career_advice"],
         "voice_screening_status": candidate.voice_screening_status,
-
     }
 
 
@@ -2740,42 +1432,22 @@ def final_interview_result(
 # Update Candidate Status
 # ============================================================
 
-@router.patch(
-    "/candidates/{candidate_id}/status"
-)
+@router.patch("/candidates/{candidate_id}/status")
 def update_candidate_status(
     candidate_id: str,
     body: StatusUpdate,
     db: Session = Depends(get_db),
 ):
-
-    candidate = (
-        db.query(Candidate)
-        .filter(
-            Candidate.id == candidate_id
-        )
-        .first()
-    )
-
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Candidate not found",
-        )
+        raise HTTPException(status_code=404, detail="Candidate not found")
 
     candidate.status = body.status
-
     db.commit()
-
     db.refresh(candidate)
 
     return {
-
         "success": True,
-
         "candidate_id": candidate.id,
-
         "new_status": candidate.status,
-
     }
