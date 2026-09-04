@@ -1,4 +1,4 @@
-{
+﻿{
   "version": 2,
   "builds": [
     {
@@ -12,36 +12,16 @@
   ],
   "routes": [
     {
-      "src": "^/jobs(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/candidates(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/interview(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/upload(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/analytics(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/matching(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
       "src": "^/$",
       "dest": "frontend-html/dashboard.html"
     },
     {
-      "src": "^/(.*)$",
+      "src": "^/(.*\\.(html|js|css|png|jpg|jpeg|svg|ico|woff|woff2|json))$",
       "dest": "frontend-html/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "backend/app/main.py"
     }
   ]
 }
