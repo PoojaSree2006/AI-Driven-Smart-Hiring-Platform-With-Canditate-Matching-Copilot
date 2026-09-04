@@ -12,23 +12,35 @@
   ],
   "routes": [
     {
-      "src": "/interview/(.*)",
+      "src": "^/jobs(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
-      "src": "/candidates/(.*)",
+      "src": "^/candidates(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
-      "src": "/jobs/(.*)",
+      "src": "^/interview(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
-      "src": "/upload/(.*)",
+      "src": "^/upload(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
-      "src": "/(.*)",
+      "src": "^/analytics(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/matching(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/$",
+      "dest": "frontend-html/dashboard.html"
+    },
+    {
+      "src": "^/(.*)$",
       "dest": "frontend-html/$1"
     }
   ]
