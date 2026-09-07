@@ -733,16 +733,27 @@ async function endTechnicalInterview() {
       }
 
       try {
-        fetch("http://127.0.0.1:8000/interview/final-result", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            candidate_id: activeCandidateId, 
-            job_id: activeJobId, 
-            final_score: finalInterviewScore 
-          })
-        }).catch(() => {});
-      } catch (e) {}
+        const payload = { 
+          candidate_id: activeCandidateId, 
+          job_id: activeJobId, 
+          final_score: finalInterviewScore 
+        };
+
+        if (typeof apiFetch === "function") {
+          await apiFetch("/interview/final-result", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+        } else {
+          await fetch("/interview/final-result", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        }
+      } catch (e) {
+        console.warn("Could not sync final result to backend:", e);
+      }
     }
 
     onContextChanged();

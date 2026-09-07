@@ -11,7 +11,7 @@ const isLocalhost = Boolean(
 );
 
 const API_BASE_URL = isLocalhost ? "http://127.0.0.1:8000" : "";
- 
+
 /** 
  * Core Network Fetch Wrapper with Response Parsing & Global Error Handling 
  * @param {string} endpoint - The relative endpoint path (e.g. "/candidates") 
@@ -24,11 +24,11 @@ async function apiFetch(endpoint, options = {}) {
   const defaultHeaders = { 
     "Accept": "application/json", 
   }; 
- 
+
   if (options.body && !(options.body instanceof FormData)) { 
     defaultHeaders["Content-Type"] = "application/json"; 
   } 
- 
+
   const config = { 
     ...options, 
     headers: { 
@@ -36,10 +36,10 @@ async function apiFetch(endpoint, options = {}) {
       ...options.headers, 
     }, 
   }; 
- 
+
   try { 
     const response = await fetch(url, config); 
- 
+
     if (!response.ok) { 
       let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`; 
       try { 
@@ -52,24 +52,24 @@ async function apiFetch(endpoint, options = {}) {
       } 
       throw new Error(errorMessage); 
     } 
- 
+
     // Handle empty 204 No Content responses 
     if (response.status === 204) { 
       return { success: true }; 
     } 
- 
+
     return await response.json(); 
   } catch (error) { 
     console.error(`[API Call Failed] ${config.method || 'GET'} ${url}:`, error.message || error); 
     throw error; 
   } 
 } 
- 
+
 const api = { 
   // ========================================================== 
   // 1. CANDIDATE MANAGEMENT ENDPOINTS 
   // ========================================================== 
- 
+
   /** 
    * Retrieves all candidate records stored in the database. 
    * @returns {Promise<Array>} List of candidate objects 
@@ -82,7 +82,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Retrieves full profile details for a specific candidate. 
    * @param {number|string} candidateId  
@@ -97,7 +97,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Updates a candidate's status in the hiring pipeline. 
    * @param {number|string} candidateId  
@@ -118,7 +118,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Updates or appends interview notes for a candidate. 
    * @param {number|string} candidateId  
@@ -137,7 +137,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Deletes a candidate record from the database. 
    * @param {number|string} candidateId  
@@ -154,11 +154,11 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   // ========================================================== 
   // 2. RESUME UPLOAD & PARSING ENDPOINTS 
   // ========================================================== 
- 
+
   /** 
    * Uploads a resume file (.pdf or .docx) for server-side parsing. 
    * @param {File} file  
@@ -169,7 +169,7 @@ const api = {
      
     const formData = new FormData(); 
     formData.append("file", file); 
- 
+
     try { 
       return await apiFetch("/upload", { 
         method: "POST", 
@@ -180,11 +180,11 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   // ========================================================== 
   // 3. DASHBOARD & METRICS ENDPOINTS 
   // ========================================================== 
- 
+
   /** 
    * Retrieves aggregated statistics for dashboard summary widgets. 
    * @returns {Promise<object|null>} Stats payload or null if unavailable 
@@ -197,11 +197,11 @@ const api = {
       return null; 
     } 
   }, 
- 
+
   // ========================================================== 
   // 4. JOB POSTINGS & SKILL MATCHING ENDPOINTS 
   // ========================================================== 
- 
+
   /** 
    * Retrieves all active job descriptions and postings. 
    * @returns {Promise<Array>} List of job objects 
@@ -214,14 +214,15 @@ const api = {
       return []; 
     } 
   }, 
-    /** 
+
+  /** 
    * Creates a new job posting. 
    */ 
   async createJob(jobData) { 
     if (!jobData || !jobData.title) { 
       throw new Error("Job title is required"); 
     } 
- 
+
     try { 
       return await apiFetch("/jobs", { 
         method: "POST", 
@@ -232,7 +233,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Deletes a job posting. 
    */ 
@@ -240,7 +241,7 @@ const api = {
     if (!jobId) { 
       throw new Error("jobId is required for deleteJob"); 
     } 
- 
+
     try { 
       return await apiFetch(`/job/${jobId}`, { 
         method: "DELETE" 
@@ -250,7 +251,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Retrieves a specific job posting by ID. 
    * @param {number|string} jobId  
@@ -265,8 +266,7 @@ const api = {
       throw err; 
     } 
   }, 
-   
- 
+
   /** 
    * Computes match fit scores between all candidates and a designated Job ID. 
    * @param {number|string} jobId  
@@ -281,11 +281,11 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   // ========================================================== 
   // 5. AI INTERVIEW ASSISTANT ENDPOINTS 
   // ========================================================== 
- 
+
   /** 
    * Generates tailored interview questions using Gemini API. 
    * @param {number|string} jobId  
@@ -315,7 +315,7 @@ const api = {
       throw err; 
     } 
   }, 
- 
+
   /** 
    * Submits user response to AI and receives evaluation and follow-up prompts. 
    * @param {number|string} candidateId  
@@ -323,61 +323,63 @@ const api = {
    * @param {Array} [history=[]]  
    * @returns {Promise<object>} Evaluation and reply turn 
    */ 
-   async simulateInterviewTurn( 
-  candidateId, 
-  userResponse, 
-  history = [], 
-  currentQuestion = "", 
-  questionNumber = 1, 
-  totalQuestions = 5 
-) { 
-  try { 
-    return await apiFetch("/interview/simulate", { 
-      method: "POST", 
-      body: JSON.stringify({ 
-        candidate_id: candidateId, 
-        user_response: userResponse, 
-        current_question: currentQuestion, 
-        question_number: questionNumber, 
-        total_questions: totalQuestions, 
-        history: history 
-      }) 
-    }); 
-  } catch (err) { 
-    console.error("api.simulateInterviewTurn failed:", err); 
-    throw err; 
-  } 
-}, 
-  // ========================================================== 
-// 6. ANALYTICS ENDPOINT 
-// ========================================================== 
- 
-/** 
- * Retrieves analytics data for the recruitment dashboard. 
- * @returns {Promise<object>} Analytics payload 
- */ 
-async getAnalytics() { 
+  async simulateInterviewTurn( 
+    candidateId, 
+    userResponse, 
+    history = [], 
+    currentQuestion = "", 
+    questionNumber = 1, 
+    totalQuestions = 5 
+  ) { 
     try { 
-        return await apiFetch("/analytics"); 
+      return await apiFetch("/interview/simulate", { 
+        method: "POST", 
+        body: JSON.stringify({ 
+          candidate_id: candidateId, 
+          user_response: userResponse, 
+          current_question: currentQuestion, 
+          question_number: questionNumber, 
+          total_questions: totalQuestions, 
+          history: history 
+        }) 
+      }); 
     } catch (err) { 
-        console.error("api.getAnalytics failed:", err); 
-        throw err; 
+      console.error("api.simulateInterviewTurn failed:", err); 
+      throw err; 
     } 
-}, 
+  }, 
+
+  // ========================================================== 
+  // 6. ANALYTICS ENDPOINT 
+  // ========================================================== 
+
+  /** 
+   * Retrieves analytics data for the recruitment dashboard. 
+   * @returns {Promise<object>} Analytics payload 
+   */ 
+  async getAnalytics() { 
+    try { 
+      return await apiFetch("/analytics"); 
+    } catch (err) { 
+      console.error("api.getAnalytics failed:", err); 
+      throw err; 
+    } 
+  }, 
+
   // ========================================================== 
   // 7. HEALTH & SYSTEM DIAGNOSTICS 
   // ========================================================== 
- 
+
   /** 
-   * Checks backend system connectivity and health status. 
+   * Checks backend system connectivity and health status via OpenAPI spec endpoint. 
    * @returns {Promise<boolean>} True if server responds successfully 
    */ 
   async checkHealth() { 
     try { 
-      const res = await apiFetch("/"); 
+      const res = await apiFetch("/openapi.json"); 
       return !!res; 
     } catch { 
       return false; 
     } 
   } 
-}; 
+};
