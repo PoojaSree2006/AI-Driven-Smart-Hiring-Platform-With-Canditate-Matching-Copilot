@@ -1,4 +1,4 @@
-﻿{
+{
   "version": 2,
   "builds": [
     {
@@ -12,23 +12,11 @@
   ],
   "routes": [
     {
-      "src": "^/(docs|openapi.json)$",
-      "dest": "backend/app/main.py"
-    },
-    {
       "src": "^/jobs(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
-      "src": "^/job(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
       "src": "^/candidates(/.*)?$",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "^/candidate(/.*)?$",
       "dest": "backend/app/main.py"
     },
     {
