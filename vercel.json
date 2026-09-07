@@ -1,21 +1,8 @@
 ﻿{
   "rewrites": [
-    { "source": "/docs", "destination": "/api/index.py" },
-    { "source": "/openapi.json", "destination": "/api/index.py" },
-    { "source": "/candidates", "destination": "/api/index.py" },
-    { "source": "/candidates/:path*", "destination": "/api/index.py" },
-    { "source": "/candidate/:path*", "destination": "/api/index.py" },
-    { "source": "/jobs", "destination": "/api/index.py" },
-    { "source": "/jobs/:path*", "destination": "/api/index.py" },
-    { "source": "/job/:path*", "destination": "/api/index.py" },
-    { "source": "/upload", "destination": "/api/index.py" },
-    { "source": "/upload/:path*", "destination": "/api/index.py" },
-    { "source": "/matching/:path*", "destination": "/api/index.py" },
-    { "source": "/interview/:path*", "destination": "/api/index.py" },
-    { "source": "/analytics/:path*", "destination": "/api/index.py" },
-    { "source": "/css/:path*", "destination": "/frontend-html/css/:path*" },
-    { "source": "/js/:path*", "destination": "/frontend-html/js/:path*" },
-    { "source": "/", "destination": "/frontend-html/dashboard.html" },
-    { "source": "/:page.html", "destination": "/frontend-html/:page.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.py"
+    }
   ]
 }
