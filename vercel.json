@@ -1,66 +1,20 @@
 ﻿{
-  "version": 2,
   "cleanUrls": true,
   "rewrites": [
-    {
-      "source": "/docs",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/openapi.json",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/candidates",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/candidates/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/candidate/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/jobs",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/jobs/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/job/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/upload",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/upload/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/matching/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/interview/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/analytics/:match*",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/",
-      "destination": "/frontend-html/dashboard.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/frontend-html/$1"
-    }
+    { "source": "/docs", "destination": "/api/index.py" },
+    { "source": "/openapi.json", "destination": "/api/index.py" },
+    { "source": "/candidates", "destination": "/api/index.py" },
+    { "source": "/candidates/:path*", "destination": "/api/index.py" },
+    { "source": "/candidate/:path*", "destination": "/api/index.py" },
+    { "source": "/jobs", "destination": "/api/index.py" },
+    { "source": "/jobs/:path*", "destination": "/api/index.py" },
+    { "source": "/job/:path*", "destination": "/api/index.py" },
+    { "source": "/upload", "destination": "/api/index.py" },
+    { "source": "/upload/:path*", "destination": "/api/index.py" },
+    { "source": "/matching/:path*", "destination": "/api/index.py" },
+    { "source": "/interview/:path*", "destination": "/api/index.py" },
+    { "source": "/analytics/:path*", "destination": "/api/index.py" },
+    { "source": "/", "destination": "/frontend-html/dashboard.html" },
+    { "source": "/:path*", "destination": "/frontend-html/:path*" }
   ]
 }
