@@ -1,8 +1,59 @@
 ﻿{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/app/main.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "frontend-html/**",
+      "use": "@vercel/static"
+    }
+  ],
   "routes": [
-    { "src": "/(docs|openapi.json)", "dest": "/api/index.py" },
-    { "src": "/(candidates|candidate|jobs|job|upload|matching|interview|analytics)(/.*)?", "dest": "/api/index.py" },
-    { "src": "/", "dest": "/frontend-html/dashboard.html" },
-    { "src": "/(.*)", "dest": "/frontend-html/$1" }
+    {
+      "src": "^/(docs|openapi.json)$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/jobs(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/job(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/candidates(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/candidate(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/interview(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/upload(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/analytics(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/matching(/.*)?$",
+      "dest": "backend/app/main.py"
+    },
+    {
+      "src": "^/$",
+      "dest": "frontend-html/dashboard.html"
+    },
+    {
+      "src": "^/(.*)$",
+      "dest": "frontend-html/$1"
+    }
   ]
 }
