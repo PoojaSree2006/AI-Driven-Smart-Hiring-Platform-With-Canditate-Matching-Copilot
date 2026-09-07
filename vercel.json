@@ -1,54 +1,66 @@
-﻿@'
-{
+﻿{
+  "version": 2,
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/docs",
-      "destination": "backend/app/main.py"
+      "destination": "/api/index.py"
     },
     {
       "source": "/openapi.json",
-      "destination": "backend/app/main.py"
+      "destination": "/api/index.py"
     },
     {
-      "source": "/jobs/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/candidates",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/job/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/candidates/:match*",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/candidates/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/candidate/:match*",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/candidate/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/jobs",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/interview/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/jobs/:match*",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/upload/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/job/:match*",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/analytics/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/upload",
+      "destination": "/api/index.py"
     },
     {
-      "source": "/matching/:path*",
-      "destination": "backend/app/main.py"
+      "source": "/upload/:match*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/matching/:match*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/interview/:match*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/analytics/:match*",
+      "destination": "/api/index.py"
     },
     {
       "source": "/",
-      "destination": "frontend-html/dashboard.html"
+      "destination": "/frontend-html/dashboard.html"
     },
     {
-      "source": "/:path*",
-      "destination": "frontend-html/:path*"
+      "source": "/(.*)",
+      "destination": "/frontend-html/$1"
     }
   ]
 }
-'@ | Set-Content -Path vercel.json -Encoding utf8
